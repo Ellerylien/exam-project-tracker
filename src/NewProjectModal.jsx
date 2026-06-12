@@ -5,19 +5,37 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCopyMode, setIsCopyMode] = useState(false);
   
+  const [isRendered, setIsRendered] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+  
   const [formData, setFormData] = useState({
     name: '', deadline: '', teacher_name: '', teacher_email: '', scope: '', sales_rep: '', sales_assistant: '', production_staff: '', listening_types: '', reading_types: '', notes: '', status: '排隊區'
   });
 
   useEffect(() => {
     if (isOpen) {
+      setIsRendered(true);
+      setTimeout(() => setIsVisible(true), 10);
+    } else {
+      setIsVisible(false);
+      const timer = setTimeout(() => setIsRendered(false), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isVisible) onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isVisible, onClose]);
+
+  useEffect(() => {
+    if (isOpen) {
       if (initialData) {
         setIsCopyMode(true);
-        setFormData({
-          ...initialData,
-          deadline: '',       
-          status: '排隊區',    
-        });
+        setFormData({ ...initialData, deadline: '', status: '排隊區' });
       } else {
         setIsCopyMode(false);
         setFormData({ name: '', deadline: '', teacher_name: '', teacher_email: '', scope: '', sales_rep: '', sales_assistant: '', production_staff: '', listening_types: '', reading_types: '', notes: '', status: '排隊區' });
@@ -25,20 +43,22 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
     }
   }, [isOpen, initialData]);
 
-  if (!isOpen) return null;
+  if (!isRendered) return null;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleSetSameAsBefore = (field) => {
+    setFormData(prev => ({ ...prev, [field]: '照舊' }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      // === 核心修正：將 id 徹底從送出的資料中剔除 ===
       const { id, ...dataToInsert } = formData;
-      
       const { error } = await supabase.from('projects').insert([dataToInsert]);
       if (error) throw error;
       onProjectAdded();
@@ -50,88 +70,120 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
     }
   };
 
-  const CopyWarning = () => isCopyMode ? <span className="text-xs text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded ml-2 animate-pulse font-normal">⚠️ 請記得修改</span> : null;
+  const CopyWarning = () => isCopyMode ? <span className="text-[10px] text-[#9C3A3C] bg-[#FAEBEC] border border-[#E9C4C6]/60 px-1.5 py-0.5 rounded ml-2 animate-pulse font-normal tracking-wider">⚠️ 請記得修改</span> : null;
+
+  const inputClassName = "w-full px-3 py-2 md:py-2.5 bg-[#FAF9F6] border border-[#EBE6DF] rounded-md focus:border-[#B3AAA0] focus:bg-white focus:shadow-[0_0_0_1px_#EBE6DF] outline-none text-sm text-[#4A4542] transition-all shadow-[0_1px_2px_rgba(0,0,0,0.01)]";
+  const labelClassName = "block text-xs font-bold text-[#938A82] mb-1.5";
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+    <div 
+      className={`fixed inset-0 bg-[#2C2A29]/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300 ease-out
+        ${isVisible ? 'opacity-100' : 'opacity-0'}
+      `} 
+      onClick={onClose}
+    >
+      <div 
+        className={`bg-[#FAF9F6] rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] md:max-h-[90vh] flex flex-col overflow-hidden text-[#4A4542] transition-all duration-300 ease-out transform
+          ${isVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 sm:translate-y-12 scale-95'}
+        `}
+        onClick={(e) => e.stopPropagation()}
+      >
         
-        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-          <h2 className="text-xl font-bold text-gray-800">
-            {isCopyMode ? '複製專案 (Copy Project)' : '新增專案 (New Project)'}
+        <div className="px-5 py-4 border-b border-[#EBE6DF] flex justify-between items-center bg-white shrink-0">
+          <h2 className="text-lg md:text-xl font-bold text-[#4A4542]">
+            {isCopyMode ? '複製專案' : '新增專案'}
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+          <button onClick={onClose} className="text-[#938A82] hover:text-[#4A4542] bg-[#F7F5F0] p-1.5 rounded-md transition-colors shrink-0">
+            <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
-          <form id="new-project-form" onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <div className="flex-1 overflow-y-auto p-5 md:p-8 bg-white">
+          <form id="new-project-form" onSubmit={handleSubmit} className="flex flex-col gap-6 md:gap-7">
             
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">專案名稱 <span className="text-red-500">*</span> <CopyWarning /></label>
-                <input type="text" name="name" value={formData.name} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required />
+                <label className={labelClassName}>專案名稱 <span className="text-red-400">*</span> <CopyWarning /></label>
+                <input type="text" name="name" value={formData.name} onChange={handleChange} className={inputClassName} required />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">審稿截止日 <span className="text-red-500">*</span></label>
-                <input type="date" name="deadline" value={formData.deadline} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required />
+                <label className={labelClassName}>審稿截止日 <span className="text-red-400">*</span></label>
+                <input type="date" name="deadline" value={formData.deadline} onChange={handleChange} className={inputClassName} required />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">閱卷老師 <span className="text-red-500">*</span> <CopyWarning /></label>
-                <input type="text" name="teacher_name" value={formData.teacher_name} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required />
+                <label className={labelClassName}>閱卷老師 <span className="text-red-400">*</span> <CopyWarning /></label>
+                <input type="text" name="teacher_name" value={formData.teacher_name} onChange={handleChange} className={inputClassName} required />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">老師 Email <span className="text-red-500">*</span> <CopyWarning /></label>
-                <input type="email" name="teacher_email" value={formData.teacher_email} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required />
+                <label className={labelClassName}>老師 Email <span className="text-red-400">*</span> <CopyWarning /></label>
+                <input type="email" name="teacher_email" value={formData.teacher_email} onChange={handleChange} className={inputClassName} required />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">考試範圍 <span className="text-red-500">*</span> <CopyWarning /></label>
-              <input type="text" name="scope" value={formData.scope} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required />
+              <label className={labelClassName}>考試範圍 <span className="text-red-400">*</span> <CopyWarning /></label>
+              <input type="text" name="scope" value={formData.scope} onChange={handleChange} className={inputClassName} required />
             </div>
 
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6 bg-[#F7F5F0]/50 p-4 rounded-lg border border-[#EBE6DF]/50">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">負責業務 <span className="text-red-500">*</span></label>
-                <select name="sales_rep" value={formData.sales_rep} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none bg-white" required>
+                <label className={labelClassName}>負責業務 <span className="text-red-400">*</span></label>
+                <select name="sales_rep" value={formData.sales_rep} onChange={handleChange} className={inputClassName} required>
                   <option value="">請下拉選擇</option><option value="Deborah">Deborah</option><option value="Mark">Mark</option><option value="Richard">Richard</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">負責業助 <span className="text-red-500">*</span></label>
-                <select name="sales_assistant" value={formData.sales_assistant} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none bg-white" required>
+                <label className={labelClassName}>負責業助 <span className="text-red-400">*</span></label>
+                <select name="sales_assistant" value={formData.sales_assistant} onChange={handleChange} className={inputClassName} required>
                   <option value="">請下拉選擇</option><option value="Lisa">Lisa</option><option value="Jessica">Jessica</option><option value="Wanda">Wanda</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">製作人員 <span className="text-red-500">*</span></label>
-                <select name="production_staff" value={formData.production_staff} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none bg-white" required>
+                <label className={labelClassName}>製作人員 <span className="text-red-400">*</span></label>
+                <select name="production_staff" value={formData.production_staff} onChange={handleChange} className={inputClassName} required>
                   <option value="">請下拉選擇</option><option value="Ellery">Ellery</option><option value="Richard">Richard</option>
                 </select>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">聽力題型 <span className="text-red-500">*</span></label>
-                <textarea name="listening_types" value={formData.listening_types} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg h-20 resize-none outline-none" required></textarea>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-xs font-bold text-[#938A82]">聽力題型 <span className="text-red-400">*</span></label>
+                  {/* 🔥 更新：放大按鈕、改用 MUJI 燕麥色與微陰影 */}
+                  <button type="button" onClick={() => handleSetSameAsBefore('listening_types')} className="text-xs bg-[#EBE6DF] text-[#5C544D] px-3 py-1 rounded-md shadow-[0_1px_2px_rgba(0,0,0,0.05)] border border-[#DCD6CE] hover:bg-[#DCD6CE] transition-colors font-bold">
+                    照舊
+                  </button>
+                </div>
+                <textarea name="listening_types" value={formData.listening_types} onChange={handleChange} className={`${inputClassName} h-24 resize-none`} required></textarea>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">閱讀題型 <span className="text-red-500">*</span></label>
-                <textarea name="reading_types" value={formData.reading_types} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg h-20 resize-none outline-none" required></textarea>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-xs font-bold text-[#938A82]">閱讀題型 <span className="text-red-400">*</span></label>
+                  {/* 🔥 更新：放大按鈕、改用 MUJI 燕麥色與微陰影 */}
+                  <button type="button" onClick={() => handleSetSameAsBefore('reading_types')} className="text-xs bg-[#EBE6DF] text-[#5C544D] px-3 py-1 rounded-md shadow-[0_1px_2px_rgba(0,0,0,0.05)] border border-[#DCD6CE] hover:bg-[#DCD6CE] transition-colors font-bold">
+                    照舊
+                  </button>
+                </div>
+                <textarea name="reading_types" value={formData.reading_types} onChange={handleChange} className={`${inputClassName} h-24 resize-none`} required></textarea>
               </div>
             </div>
 
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">注意事項</label><textarea name="notes" value={formData.notes} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg h-16 resize-none outline-none"></textarea></div>
+            <div>
+              <label className={labelClassName}>注意事項</label>
+              <textarea name="notes" value={formData.notes} onChange={handleChange} className={`${inputClassName} h-16 resize-none`} placeholder="選填..."></textarea>
+            </div>
           </form>
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="px-5 py-2 text-gray-600 hover:bg-gray-200 rounded-lg font-medium transition-colors">取消</button>
-          <button type="submit" form="new-project-form" disabled={isSubmitting} className="px-5 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2">
+        <div className="px-5 py-4 border-t border-[#EBE6DF] bg-[#FAF9F6] flex justify-end gap-3 shrink-0">
+          <button type="button" onClick={onClose} className="px-5 py-2 md:py-2.5 text-sm text-[#635B56] bg-white border border-[#EBE6DF] hover:bg-[#F7F5F0] rounded-md font-bold transition-colors">
+            取消
+          </button>
+          <button type="submit" form="new-project-form" disabled={isSubmitting} className="px-5 py-2 md:py-2.5 text-sm bg-[#5C544D] text-white rounded-md font-bold hover:bg-[#4A433D] transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50">
             {isSubmitting ? '處理中...' : (isCopyMode ? '儲存複製專案' : '儲存專案')}
           </button>
         </div>

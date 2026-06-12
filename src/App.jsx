@@ -21,17 +21,29 @@ export default function App() {
   const [searchResults, setSearchResults] = useState([]);
   const [searchSelectedProject, setSearchSelectedProject] = useState(null);
 
+  const AVATAR_MAP = {
+    'Deborah': 'Deborah_4', 
+    'Lisa': 'Lisa_8',
+    'Jessica': 'Jessica_2',
+    'Wanda': 'Wanda_3',
+    'Mark': 'Mark_5',
+    'Richard': 'Richard_12',
+    'Ellery': 'Ellery_9',
+    'Guest': 'Guest_1'
+  };
+
+  const getAvatarUrl = (name) => {
+    const seed = AVATAR_MAP[name] || name;
+    return `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(seed)}`;
+  };
+
   const handleLoginSuccess = (user) => {
     localStorage.setItem('team_tracker_user', JSON.stringify(user));
     setCurrentUser(user);
     const role = user.role?.toLowerCase() || '';
-    if (role.includes('admin')) {
-      setCurrentView('calendar');
-    } else if (role.includes('sales')) {
-      setCurrentView('sales');    
-    } else {
-      setCurrentView('kanban');   
-    }
+    if (role.includes('admin')) setCurrentView('calendar');
+    else if (role.includes('sales')) setCurrentView('sales');    
+    else setCurrentView('kanban');   
   };
 
   const handleLogout = () => {
@@ -50,60 +62,51 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!searchTerm.trim()) {
-      setSearchResults([]);
-      return;
-    }
+    if (!searchTerm.trim()) { setSearchResults([]); return; }
     const fetchSearch = async () => {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .or(`name.ilike.%${searchTerm}%,teacher_name.ilike.%${searchTerm}%,scope.ilike.%${searchTerm}%`)
-        .limit(8);
+      const { data, error } = await supabase.from('projects').select('*')
+        .or(`name.ilike.%${searchTerm}%,teacher_name.ilike.%${searchTerm}%,scope.ilike.%${searchTerm}%`).limit(8);
       if (!error && data) setSearchResults(data);
     };
     const timer = setTimeout(() => fetchSearch(), 300);
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  if (!currentUser) {
-    return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
-  }
+  if (!currentUser) return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
 
   return (
     <div 
-      className="min-h-screen bg-gray-100 flex flex-col" 
+      className="min-h-screen bg-[#F7F5F0] flex flex-col" 
       style={{ fontFamily: '"Swei Spring", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif' }}
     >
-      <nav className="bg-white shadow-sm border-b border-gray-200 px-4 md:px-8 py-3 flex flex-wrap md:flex-nowrap items-center justify-between z-10 sticky top-0 gap-y-3">
+      <nav className="bg-white shadow-[0_1px_2px_rgba(0,0,0,0.01)] border-b border-[#EBE6DF] px-4 md:px-8 py-3 flex flex-wrap md:flex-nowrap items-center justify-between z-10 sticky top-0 gap-y-3">
         
-        {/* 左側：Logo 與 搜尋 */}
         <div className="flex items-center gap-2 md:gap-6 w-full md:w-auto justify-between md:justify-start">
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="bg-blue-600 text-white p-1.5 rounded-lg">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+          <div className="flex items-center gap-3 shrink-0">
+            {/* 🔥 修改：直接改用內建 SVG，避免外部圖片讀取失敗 */}
+            <div className="w-8 h-8 rounded-lg border border-[#EBE6DF] bg-white shadow-sm flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-[#4A4542]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+              </svg>
             </div>
-            <span className="font-bold text-gray-800 text-lg hidden lg:block">考題專案系統</span>
+            <span className="font-bold text-[#4A4542] text-lg hidden lg:block tracking-wide">考題專案系統</span>
           </div>
 
           <div className="relative flex-1 md:flex-none ml-2">
-            <svg className="w-4 h-4 md:w-5 md:h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            <svg className="w-4 h-4 md:w-5 md:h-5 absolute left-3 top-1/2 -translate-y-1/2 text-[#938A82]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             <input 
-              type="text" 
-              placeholder="搜尋專案、老師..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all w-full md:w-[200px] lg:w-[260px] text-sm"
+              type="text" placeholder="搜尋專案、老師..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 pr-3 py-2 bg-[#F7F5F0] border border-[#EBE6DF] rounded-lg focus:outline-none focus:bg-white focus:border-[#D1C9BE] transition-all w-full md:w-[200px] lg:w-[260px] text-sm text-[#4A4542] placeholder:text-[#B3AAA0]"
             />
             {searchTerm && searchResults.length > 0 && (
-              <div className="absolute top-full mt-2 w-full min-w-[240px] bg-white rounded-xl shadow-lg border border-gray-100 max-h-[350px] overflow-y-auto z-50">
-                <div className="p-3 text-xs text-gray-400 font-medium border-b border-gray-50">搜尋結果 ({searchResults.length})</div>
+              <div className="absolute top-full mt-2 w-full min-w-[240px] bg-white rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-[#EBE6DF] max-h-[350px] overflow-y-auto z-50">
+                <div className="p-3 text-xs text-[#938A82] font-bold border-b border-[#F7F5F0]">搜尋結果 ({searchResults.length})</div>
                 {searchResults.map(p => (
-                  <div key={p.id} onClick={() => { setSearchSelectedProject(p); setSearchTerm(''); }} className="p-3 border-b border-gray-50 hover:bg-gray-50 cursor-pointer">
-                    <div className="font-bold text-gray-800 truncate text-sm">{p.name}</div>
-                    <div className="flex justify-between items-center mt-1.5 text-xs text-gray-500">
+                  <div key={p.id} onClick={() => { setSearchSelectedProject(p); setSearchTerm(''); }} className="p-3 border-b border-[#F7F5F0] hover:bg-[#F7F5F0] cursor-pointer">
+                    <div className="font-bold text-[#4A4542] truncate text-sm">{p.name}</div>
+                    <div className="flex justify-between items-center mt-1.5 text-xs text-[#938A82]">
                       <span>{p.sales_rep}</span>
-                      <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{p.status}</span>
+                      <span className="bg-[#EBE6DF]/50 text-[#635B56] px-2 py-0.5 rounded-md font-medium border border-[#EBE6DF]">{p.status}</span>
                     </div>
                   </div>
                 ))}
@@ -112,44 +115,30 @@ export default function App() {
           </div>
         </div>
 
-        {/* 右側：按鈕與導航區 (優化：允許左側模式選單壓縮或內部滑動，確保右側按鈕絕對不變形裁切) */}
         <div className="flex items-center justify-between w-full md:w-auto gap-2 md:gap-3">
-          
-          {/* 模式切換：在空間不夠時允許內部橫向滑動 */}
-          <div className="flex bg-gray-100 p-1 rounded-lg min-w-0 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            <button onClick={() => setCurrentView('kanban')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'kanban' ? 'bg-white text-blue-600 shadow-sm font-bold' : 'text-gray-500 hover:text-gray-700 font-normal'}`}>全專案進度</button>
-            <button onClick={() => setCurrentView('calendar')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'calendar' ? 'bg-white text-blue-600 shadow-sm font-bold' : 'text-gray-500 hover:text-gray-700 font-normal'}`}>截稿日</button>
-            <button onClick={() => setCurrentView('sales')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'sales' ? 'bg-white text-blue-600 shadow-sm font-bold' : 'text-gray-500 hover:text-gray-700 font-normal'}`}>業務分區進度</button>
+          <div className="flex bg-[#F7F5F0] p-1 rounded-lg min-w-0 overflow-x-auto hide-scrollbar">
+            <button onClick={() => setCurrentView('kanban')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'kanban' ? 'bg-white text-[#4A4542] shadow-[0_1px_3px_rgba(0,0,0,0.03)] font-bold border border-[#EBE6DF]' : 'text-[#938A82] hover:text-[#635B56] font-medium'}`}>全專案進度</button>
+            <button onClick={() => setCurrentView('calendar')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'calendar' ? 'bg-white text-[#4A4542] shadow-[0_1px_3px_rgba(0,0,0,0.03)] font-bold border border-[#EBE6DF]' : 'text-[#938A82] hover:text-[#635B56] font-medium'}`}>截稿日</button>
+            <button onClick={() => setCurrentView('sales')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'sales' ? 'bg-white text-[#4A4542] shadow-[0_1px_3px_rgba(0,0,0,0.03)] font-bold border border-[#EBE6DF]' : 'text-[#938A82] hover:text-[#635B56] font-medium'}`}>業務分區進度</button>
           </div>
           
-          {/* 動作區：加上 shrink-0 確保它有最高權重，絕不被擠出去 */}
           <div className="flex items-center gap-2 shrink-0">
             {currentUser.role?.toLowerCase() !== 'guest' && (
-              <button onClick={handleOpenNew} className="h-8 md:h-9 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-2.5 md:px-4 rounded-lg shadow-sm transition-colors text-sm font-medium">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path>
-                </svg>
+              <button onClick={handleOpenNew} className="h-8 md:h-9 flex items-center justify-center gap-1.5 bg-[#5C544D] hover:bg-[#4A433D] text-white px-2.5 md:px-4 rounded-md transition-colors text-sm font-medium shadow-sm">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
                 <span className="hidden sm:inline">新增專案</span>
               </button>
             )}
 
-            <div className="flex items-center gap-1.5 md:gap-2 border-l border-gray-200 pl-2 md:pl-4">
-              <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center overflow-hidden p-0.5 shadow-sm" title={`身份：${currentUser.name}`}>
-                <img 
-                  src={`https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(currentUser.name)}&backgroundColor=b6e3f4,c0aede,d1d4f9`} 
-                  alt={currentUser.name} 
-                  className="w-full h-full object-contain" 
-                />
+            <div className="flex items-center gap-1.5 md:gap-2 border-l border-[#EBE6DF] pl-2 md:pl-4">
+              <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-white border border-[#EBE6DF] flex items-center justify-center overflow-hidden p-0.5 shadow-sm" title={`身份：${currentUser.name}`}>
+                <img src={getAvatarUrl(currentUser.name)} alt={currentUser.name} className="w-full h-full object-contain" />
               </div>
-              <button 
-                onClick={handleLogout}
-                className="text-xs text-gray-400 hover:text-red-500 font-medium transition-colors whitespace-nowrap"
-              >
+              <button onClick={handleLogout} className="text-xs text-[#938A82] hover:text-red-500 font-medium transition-colors whitespace-nowrap">
                 登出
               </button>
             </div>
           </div>
-
         </div>
       </nav>
 
@@ -159,15 +148,7 @@ export default function App() {
         {currentView === 'sales' && <SalesDashboard currentUser={currentUser} searchTerm={searchTerm} refreshKey={refreshKey} onCopyProject={handleCopyProject} />}
       </main>
       
-      <ProjectDetailModal 
-        project={searchSelectedProject} 
-        onClose={() => setSearchSelectedProject(null)} 
-        onProjectDeleted={() => { setRefreshKey(k => k + 1); setSearchSelectedProject(null); }}
-        onProjectUpdated={() => { setRefreshKey(k => k + 1); setSearchSelectedProject(null); }}
-        onStatusChange={(id, status, hasUnread) => setRefreshKey(k => k + 1)}
-        onCopyProject={handleCopyProject} 
-      />
-
+      <ProjectDetailModal project={searchSelectedProject} onClose={() => setSearchSelectedProject(null)} onProjectDeleted={() => { setRefreshKey(k => k + 1); setSearchSelectedProject(null); }} onProjectUpdated={() => { setRefreshKey(k => k + 1); setSearchSelectedProject(null); }} onStatusChange={(id, status, hasUnread) => setRefreshKey(k => k + 1)} onCopyProject={handleCopyProject} />
       <NewProjectModal isOpen={isNewModalOpen} onClose={() => setIsNewModalOpen(false)} onProjectAdded={() => setRefreshKey(prev => prev + 1)} initialData={copyData} />
     </div>
   );
