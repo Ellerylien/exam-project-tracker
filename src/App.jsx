@@ -75,16 +75,14 @@ export default function App() {
       className="min-h-screen bg-gray-100 flex flex-col" 
       style={{ fontFamily: '"Swei Spring", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif' }}
     >
-      {/* RWD 優化：允許 Navbar 換行 (flex-wrap)，並在手機版微調 padding */}
       <nav className="bg-white shadow-sm border-b border-gray-200 px-4 md:px-8 py-3 flex flex-wrap md:flex-nowrap items-center justify-between z-10 sticky top-0 gap-y-3">
         
-        {/* 左側：Logo 與 搜尋 (手機版佔據更多空間) */}
+        {/* 左側：Logo 與 搜尋 */}
         <div className="flex items-center gap-2 md:gap-6 w-full md:w-auto justify-between md:justify-start">
           <div className="flex items-center gap-2 shrink-0">
             <div className="bg-blue-600 text-white p-1.5 rounded-lg">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
             </div>
-            {/* RWD 優化：手機版隱藏標題，節省空間 */}
             <span className="font-bold text-gray-800 text-lg hidden lg:block">考題專案系統</span>
           </div>
 
@@ -114,27 +112,29 @@ export default function App() {
           </div>
         </div>
 
-        {/* 右側：按鈕與導航區 (RWD 優化：允許橫向滑動 hide-scrollbar) */}
-        <div className="flex items-center justify-between w-full md:w-auto gap-3 overflow-x-auto pb-1 md:pb-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          <div className="flex bg-gray-100 p-1 rounded-lg shrink-0">
-            <button onClick={() => setCurrentView('kanban')} className={`px-3 md:px-4 py-1.5 rounded-md text-sm transition-all ${currentView === 'kanban' ? 'bg-white text-blue-600 shadow-sm font-bold' : 'text-gray-500 hover:text-gray-700 font-normal'}`}>全專案進度</button>
-            <button onClick={() => setCurrentView('calendar')} className={`px-3 md:px-4 py-1.5 rounded-md text-sm transition-all ${currentView === 'calendar' ? 'bg-white text-blue-600 shadow-sm font-bold' : 'text-gray-500 hover:text-gray-700 font-normal'}`}>截稿日</button>
-            <button onClick={() => setCurrentView('sales')} className={`px-3 md:px-4 py-1.5 rounded-md text-sm transition-all ${currentView === 'sales' ? 'bg-white text-blue-600 shadow-sm font-bold' : 'text-gray-500 hover:text-gray-700 font-normal'}`}>業務分區進度</button>
+        {/* 右側：按鈕與導航區 (優化：允許左側模式選單壓縮或內部滑動，確保右側按鈕絕對不變形裁切) */}
+        <div className="flex items-center justify-between w-full md:w-auto gap-2 md:gap-3">
+          
+          {/* 模式切換：在空間不夠時允許內部橫向滑動 */}
+          <div className="flex bg-gray-100 p-1 rounded-lg min-w-0 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <button onClick={() => setCurrentView('kanban')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'kanban' ? 'bg-white text-blue-600 shadow-sm font-bold' : 'text-gray-500 hover:text-gray-700 font-normal'}`}>全專案進度</button>
+            <button onClick={() => setCurrentView('calendar')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'calendar' ? 'bg-white text-blue-600 shadow-sm font-bold' : 'text-gray-500 hover:text-gray-700 font-normal'}`}>截稿日</button>
+            <button onClick={() => setCurrentView('sales')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'sales' ? 'bg-white text-blue-600 shadow-sm font-bold' : 'text-gray-500 hover:text-gray-700 font-normal'}`}>業務分區進度</button>
           </div>
           
+          {/* 動作區：加上 shrink-0 確保它有最高權重，絕不被擠出去 */}
           <div className="flex items-center gap-2 shrink-0">
             {currentUser.role?.toLowerCase() !== 'guest' && (
-              <button onClick={handleOpenNew} className="h-9 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 md:px-4 rounded-lg shadow-sm transition-colors text-sm font-medium">
+              <button onClick={handleOpenNew} className="h-8 md:h-9 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-2.5 md:px-4 rounded-lg shadow-sm transition-colors text-sm font-medium">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path>
                 </svg>
-                {/* RWD 優化：手機版僅顯示 Icon */}
                 <span className="hidden sm:inline">新增專案</span>
               </button>
             )}
 
-            <div className="flex items-center gap-2 border-l border-gray-200 pl-3 md:pl-4">
-              <div className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center overflow-hidden p-0.5 shadow-sm" title={`身份：${currentUser.name}`}>
+            <div className="flex items-center gap-1.5 md:gap-2 border-l border-gray-200 pl-2 md:pl-4">
+              <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center overflow-hidden p-0.5 shadow-sm" title={`身份：${currentUser.name}`}>
                 <img 
                   src={`https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(currentUser.name)}&backgroundColor=b6e3f4,c0aede,d1d4f9`} 
                   alt={currentUser.name} 
@@ -149,6 +149,7 @@ export default function App() {
               </button>
             </div>
           </div>
+
         </div>
       </nav>
 
