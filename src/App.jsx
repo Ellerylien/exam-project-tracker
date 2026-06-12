@@ -21,20 +21,21 @@ export default function App() {
   const [searchResults, setSearchResults] = useState([]);
   const [searchSelectedProject, setSearchSelectedProject] = useState(null);
 
-  const AVATAR_MAP = {
-    'Deborah': 'Deborah_4', 
-    'Lisa': 'Lisa_8',
-    'Jessica': 'Jessica_2',
-    'Wanda': 'Wanda_3',
-    'Mark': 'Mark_5',
-    'Richard': 'Richard_12',
-    'Ellery': 'Ellery_9',
-    'Guest': 'Guest_1'
+const AVATAR_MAP = { 
+    'Deborah': 'Deborah_6', 'Lisa': 'Lisa_50', 'Jessica': 'Jessica_16', 
+    'Wanda': 'Wanda_40', 'Mark': 'Mark_33', 'Richard': 'Richard_58', 
+    'Ellery': 'Ellery_9', 'Guest': 'Guest_5' 
   };
 
-  const getAvatarUrl = (name) => {
-    const seed = AVATAR_MAP[name] || name;
-    return `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(seed)}`;
+  const getAvatarUrl = (name) => { 
+    if (!name) return `https://api.dicebear.com/7.x/notionists/svg?seed=fallback`;
+    
+    // 🔥 防呆機制：強制去除名字前後的不小心打到的空白字元
+    const cleanName = name.trim();
+    
+    // 尋找對應的專屬編號，找不到就用原本的名字產圖
+    const seed = AVATAR_MAP[cleanName] || cleanName; 
+    return `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(seed)}`; 
   };
 
   const handleLoginSuccess = (user) => {
