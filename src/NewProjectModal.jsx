@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import { useToast } from './toast';
 
 export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initialData }) {
+  const toast = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCopyMode, setIsCopyMode] = useState(false);
   
@@ -63,8 +65,9 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
       if (error) throw error;
       onProjectAdded();
       onClose();
+      toast.success(`「${formData.name}」已建立`);
     } catch (error) {
-      alert('新增失敗：' + error.message);
+      toast.error('新增失敗：' + error.message);
     } finally {
       setIsSubmitting(false);
     }

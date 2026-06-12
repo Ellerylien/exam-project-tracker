@@ -40,8 +40,13 @@
 
   /* ===== 狀態色（低飽和 Notion 風）===== */
   --color-danger: #9C3A3C;
+  --color-danger-strong: #7E2E30; /* 危險按鈕 hover */
   --color-danger-bg: #FAEBEC;
   --color-danger-line: #E9C4C6;
+
+  --color-success: #347355;
+  --color-success-bg: #EDF4EE;
+  --color-success-line: #D3E5D8;
 
   --color-warning: #8F6B1A;
   --color-warning-bg: #FBF3DB;

@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import KanbanBoard from './KanbanBoard';
+import { UnreadContext } from './unread';
 import CalendarView from './CalendarView';
 import SalesDashboard from './SalesDashboard'; 
 import NewProjectModal from './NewProjectModal';
@@ -20,6 +21,15 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchSelectedProject, setSearchSelectedProject] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // 全站未讀回覆數：登入與資料異動時重算，深層元件透過 UnreadContext 觸發
+  const refreshUnread = useCallback(async () => {
+    const { count, error } = await supabase.from('projects').select('id', { count: 'exact', head: true }).eq('has_unread', true);
+    if (!error) setUnreadCount(count || 0);
+  }, []);
+
+  useEffect(() => { if (currentUser) refreshUnread(); }, [currentUser, refreshKey, refreshUnread]);
 
 const AVATAR_MAP = { 
     'Deborah': 'Deborah_6', 'Lisa': 'Lisa_50', 'Jessica': 'Jessica_16', 
@@ -76,6 +86,7 @@ const AVATAR_MAP = {
   if (!currentUser) return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
 
   return (
+    <UnreadContext.Provider value={refreshUnread}>
     <div className="min-h-screen bg-paper flex flex-col">
       <nav className="bg-white shadow-[0_1px_2px_rgba(0,0,0,0.01)] border-b border-line px-4 md:px-8 py-3 flex flex-wrap md:flex-nowrap items-center justify-between z-10 sticky top-0 gap-y-3">
         
@@ -115,7 +126,12 @@ const AVATAR_MAP = {
 
         <div className="flex items-center justify-between w-full md:w-auto gap-2 md:gap-3">
           <div className="flex bg-paper p-1 rounded-lg min-w-0 overflow-x-auto hide-scrollbar">
-            <button onClick={() => setCurrentView('kanban')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'kanban' ? 'bg-white text-ink shadow-[0_1px_3px_rgba(0,0,0,0.03)] font-bold border border-line' : 'text-ink-muted hover:text-ink-soft font-medium'}`}>全專案進度</button>
+            <button onClick={() => setCurrentView('kanban')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'kanban' ? 'bg-white text-ink shadow-[0_1px_3px_rgba(0,0,0,0.03)] font-bold border border-line' : 'text-ink-muted hover:text-ink-soft font-medium'}`}>
+              全專案進度
+              {unreadCount > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[11px] font-bold leading-none align-middle" title={`${unreadCount} 個專案有未讀回覆`}>{unreadCount}</span>
+              )}
+            </button>
             <button onClick={() => setCurrentView('calendar')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'calendar' ? 'bg-white text-ink shadow-[0_1px_3px_rgba(0,0,0,0.03)] font-bold border border-line' : 'text-ink-muted hover:text-ink-soft font-medium'}`}>截稿日</button>
             <button onClick={() => setCurrentView('sales')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'sales' ? 'bg-white text-ink shadow-[0_1px_3px_rgba(0,0,0,0.03)] font-bold border border-line' : 'text-ink-muted hover:text-ink-soft font-medium'}`}>業務分區進度</button>
           </div>
@@ -149,5 +165,6 @@ const AVATAR_MAP = {
       <ProjectDetailModal project={searchSelectedProject} onClose={() => setSearchSelectedProject(null)} onProjectDeleted={() => { setRefreshKey(k => k + 1); setSearchSelectedProject(null); }} onProjectUpdated={() => { setRefreshKey(k => k + 1); setSearchSelectedProject(null); }} onStatusChange={(id, status, hasUnread) => setRefreshKey(k => k + 1)} onCopyProject={handleCopyProject} />
       <NewProjectModal isOpen={isNewModalOpen} onClose={() => setIsNewModalOpen(false)} onProjectAdded={() => setRefreshKey(prev => prev + 1)} initialData={copyData} />
     </div>
+    </UnreadContext.Provider>
   );
 }

@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import { useToast } from './toast';
 
 export default function EditProjectModal({ isOpen, project, onClose, onProjectUpdated }) {
+  const toast = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [isRendered, setIsRendered] = useState(false);
@@ -71,8 +73,9 @@ export default function EditProjectModal({ isOpen, project, onClose, onProjectUp
       if (error) throw error;
       onProjectUpdated();
       onClose();
+      toast.success('變更已儲存');
     } catch (error) {
-      alert('更新失敗：' + error.message);
+      toast.error('更新失敗：' + error.message);
       console.error(error);
     } finally {
       setIsSubmitting(false);

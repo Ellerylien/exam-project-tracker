@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react';
 import { supabase } from './supabaseClient';
 import confetti from 'canvas-confetti';
 import EditProjectModal from './EditProjectModal';
+import ConfirmDialog from './ConfirmDialog';
 import { STATUSES } from './constants';
+import { useToast } from './toast';
+import { useUnreadRefresh } from './unread';
 
 export default function ProjectDetailModal({ project, onClose, onStatusChange, onProjectDeleted, onProjectUpdated, onCopyProject }) {
   const [activeProject, setActiveProject] = useState(null);
@@ -17,6 +20,11 @@ export default function ProjectDetailModal({ project, onClose, onStatusChange, o
   
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editingContent, setEditingContent] = useState('');
+  // { type: 'project' } 或 { type: 'comment', id }，控制刪除確認視窗
+  const [confirmState, setConfirmState] = useState(null);
+
+  const toast = useToast();
+  const refreshUnread = useUnreadRefresh();
 
   const [loggedInUser, setLoggedInUser] = useState({ name: 'Guest' });
 
@@ -54,11 +62,11 @@ const AVATAR_MAP = {
   }, [project]);
 
   useEffect(() => {
-    // 編輯視窗開啟時讓它自己處理 ESC，避免一次關閉兩層
-    const handleKeyDown = (e) => { if (e.key === 'Escape' && isVisible && !isEditModalOpen) onClose(); };
+    // 編輯視窗或確認視窗開啟時讓它們自己處理 ESC，避免一次關閉兩層
+    const handleKeyDown = (e) => { if (e.key === 'Escape' && isVisible && !isEditModalOpen && !confirmState) onClose(); };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isVisible, onClose, isEditModalOpen]);
+  }, [isVisible, onClose, isEditModalOpen, confirmState]);
 
   useEffect(() => { 
     if (activeProject) {
@@ -67,7 +75,10 @@ const AVATAR_MAP = {
       setEditingCommentId(null);
       if (activeProject.has_unread) {
         supabase.from('projects').update({ has_unread: false }).eq('id', activeProject.id).then(({ error }) => {
-          if (!error && onStatusChange) onStatusChange(activeProject.id, activeProject.status, false); 
+          if (!error) {
+            if (onStatusChange) onStatusChange(activeProject.id, activeProject.status, false);
+            refreshUnread?.();
+          }
         });
       }
     }
@@ -94,8 +105,9 @@ const AVATAR_MAP = {
       if (loggedInUser.name !== 'Ellery') {
         await supabase.from('projects').update({ has_unread: true }).eq('id', activeProject.id);
         if (onStatusChange) onStatusChange(activeProject.id, activeProject.status, true);
+        refreshUnread?.();
       }
-    } catch (error) { console.error(error); }
+    } catch (error) { console.error(error); toast.error('留言送出失敗，請再試一次'); }
   }
 
   const startEditComment = (comment) => {
@@ -110,22 +122,43 @@ const AVATAR_MAP = {
       setEditingCommentId(null);
       setEditingContent('');
       fetchComments();
-    } catch (error) { alert('修改留言失敗'); }
+    } catch (error) { toast.error('修改留言失敗'); }
   };
 
   const handleDeleteComment = async (commentId) => {
-    if (!window.confirm('確定要刪除這則留言嗎？')) return;
     try {
       await supabase.from('comments').delete().eq('id', commentId);
       fetchComments();
-    } catch (error) { alert('刪除留言失敗'); }
+      toast.success('留言已刪除');
+    } catch (error) { toast.error('刪除留言失敗'); }
+  };
+
+  const handleDeleteProject = async () => {
+    try {
+      await supabase.from('projects').delete().eq('id', activeProject.id);
+      toast.success(`「${activeProject.name}」已刪除`);
+      onProjectDeleted();
+      onClose();
+    } catch { toast.error('刪除專案失敗'); }
   };
 
   const updateProjectStatus = async (newStatus, setUnread = false) => {
+    const projectId = activeProject.id;
+    const prevStatus = activeProject.status;
     try {
-      await supabase.from('projects').update({ status: newStatus, has_unread: setUnread }).eq('id', activeProject.id);
-      if (onStatusChange) onStatusChange(activeProject.id, newStatus, setUnread); onClose();
-    } catch (error) { alert('更新失敗'); }
+      await supabase.from('projects').update({ status: newStatus, has_unread: setUnread }).eq('id', projectId);
+      if (onStatusChange) onStatusChange(projectId, newStatus, setUnread); onClose();
+      refreshUnread?.();
+      toast.success(`已移至「${newStatus}」`, {
+        action: {
+          label: '復原',
+          onClick: async () => {
+            await supabase.from('projects').update({ status: prevStatus }).eq('id', projectId);
+            if (onStatusChange) onStatusChange(projectId, prevStatus, false);
+          },
+        },
+      });
+    } catch (error) { toast.error('更新失敗'); }
   };
 
   // 下拉選單切換狀態：手機無法拖曳看板卡片，這是行動裝置唯一的換階段途徑
@@ -179,7 +212,7 @@ const AVATAR_MAP = {
           <button onClick={() => startEditComment(comment)} title="編輯" className="hover:text-ink-soft transition-colors">
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
           </button>
-          <button onClick={() => handleDeleteComment(comment.id)} title="刪除" className="hover:text-danger transition-colors">
+          <button onClick={() => setConfirmState({ type: 'comment', id: comment.id })} title="刪除" className="hover:text-danger transition-colors">
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
           </button>
         </>
@@ -219,7 +252,7 @@ const AVATAR_MAP = {
               <button onClick={() => setIsEditModalOpen(true)} title="修改內容" className="w-8 h-8 flex items-center justify-center bg-paper text-ink-soft rounded-md hover:bg-line hover:text-ink transition-colors border border-line">
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
               </button>
-              <button onClick={async () => { if(window.confirm('確定刪除？')){ await supabase.from('projects').delete().eq('id', activeProject.id); onProjectDeleted(); onClose(); } }} title="刪除" className="w-8 h-8 flex items-center justify-center bg-danger-bg text-danger rounded-md hover:bg-danger-line/50 transition-colors border border-danger-line/60">
+              <button onClick={() => setConfirmState({ type: 'project' })} title="刪除" className="w-8 h-8 flex items-center justify-center bg-danger-bg text-danger rounded-md hover:bg-danger-line/50 transition-colors border border-danger-line/60">
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
               </button>
             </div>
@@ -341,6 +374,22 @@ const AVATAR_MAP = {
         </div>
       </div>
       <EditProjectModal isOpen={isEditModalOpen} project={activeProject} onClose={() => setIsEditModalOpen(false)} onProjectUpdated={() => onProjectUpdated && onProjectUpdated()} />
+      <ConfirmDialog
+        open={!!confirmState}
+        danger
+        confirmLabel="刪除"
+        title={confirmState?.type === 'project' ? '刪除專案' : '刪除留言'}
+        description={confirmState?.type === 'project'
+          ? `確定要刪除「${activeProject.name}」嗎？相關討論記錄將一併消失，且無法復原。`
+          : '確定要刪除這則留言嗎？刪除後無法復原。'}
+        onCancel={() => setConfirmState(null)}
+        onConfirm={() => {
+          const pending = confirmState;
+          setConfirmState(null);
+          if (pending?.type === 'project') handleDeleteProject();
+          else if (pending?.type === 'comment') handleDeleteComment(pending.id);
+        }}
+      />
     </>
   );
 }

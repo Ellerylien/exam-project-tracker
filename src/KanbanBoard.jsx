@@ -5,8 +5,10 @@ import ProjectDetailModal from './ProjectDetailModal';
 import { getDeadlineInfo } from './deadline';
 import Skeleton from './Skeleton';
 import { STATUSES } from './constants';
+import { useToast } from './toast';
 
 export default function KanbanBoard({ refreshKey, onCopyProject }) {
+  const toast = useToast();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState(null);
@@ -46,9 +48,26 @@ export default function KanbanBoard({ refreshKey, onCopyProject }) {
     e.preventDefault(); stopAutoScroll(); setDragOverColumn(null);
     const projectId = e.dataTransfer.getData('projectId');
     if (!projectId) return;
+    const project = projects.find(p => p.id === projectId);
+    if (!project || project.status === newStatus) return;
+    const prevStatus = project.status;
     setProjects(projects.map(p => p.id === projectId ? { ...p, status: newStatus } : p));
     if (newStatus === '結案') confetti();
-    try { await supabase.from('projects').update({ status: newStatus }).eq('id', projectId); } catch (error) { fetchProjects(); }
+    try {
+      await supabase.from('projects').update({ status: newStatus }).eq('id', projectId);
+      toast.success(`「${project.name}」已移至「${newStatus}」`, {
+        action: {
+          label: '復原',
+          onClick: async () => {
+            setProjects(prev => prev.map(p => p.id === projectId ? { ...p, status: prevStatus } : p));
+            await supabase.from('projects').update({ status: prevStatus }).eq('id', projectId);
+          },
+        },
+      });
+    } catch {
+      toast.error('更新失敗，已還原原本狀態');
+      fetchProjects();
+    }
   };
 
   if (loading) return (
