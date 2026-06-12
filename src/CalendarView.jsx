@@ -95,7 +95,7 @@ export default function CalendarView({ refreshKey, onCopyProject }) {
                         key={project.id}
                         role="button"
                         tabIndex={0}
-                        onClick={() => setSelectedProject(project)}
+                        onClick={(e) => { e.currentTarget.blur(); setSelectedProject(project); }}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedProject(project); } }}
                         className={`text-xs px-2 py-1.5 rounded-md border truncate cursor-pointer hover:border-line-strong transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.01)]
                           ${project.status === '排隊區' ? 'bg-white text-ink-soft' : 'bg-info-bg text-info border-info-line/40'}`}

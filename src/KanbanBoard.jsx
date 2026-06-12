@@ -105,7 +105,7 @@ export default function KanbanBoard({ refreshKey, onCopyProject }) {
                     // 逾期 / 今天 / 3 天內 才上色，其餘維持低調灰字，讓緊急的卡片自己跳出來
                     const isAlert = ['overdue', 'today', 'soon'].includes(deadlineInfo.level);
                     return (
-                    <div key={project.id} role="button" tabIndex={0} draggable="true" onClick={() => setSelectedProject(project)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedProject(project); } }} onDragStart={(e) => handleDragStart(e, project.id)} onDragEnd={handleDragEnd}
+                    <div key={project.id} role="button" tabIndex={0} draggable="true" onClick={(e) => { e.currentTarget.blur(); setSelectedProject(project); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedProject(project); } }} onDragStart={(e) => handleDragStart(e, project.id)} onDragEnd={handleDragEnd}
                       className={`relative p-4 rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.02)] border cursor-pointer hover:border-line-strong transition-all
                         ${project.has_unread ? 'bg-warning-bg border-warning-line/80' : 'bg-white border-line'}
                       `}

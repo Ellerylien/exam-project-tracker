@@ -164,7 +164,7 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
                   key={project.id}
                   role="button"
                   tabIndex={0}
-                  onClick={() => setSelectedProject(project)}
+                  onClick={(e) => { e.currentTarget.blur(); setSelectedProject(project); }}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedProject(project); } }}
                   className="flex flex-col sm:flex-row sm:items-center justify-between p-4 md:px-5 md:py-4 border-b border-paper last:border-b-0 hover:bg-paper/60 cursor-pointer transition-colors gap-3 group relative"
                 >

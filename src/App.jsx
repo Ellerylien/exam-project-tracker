@@ -100,7 +100,7 @@ const AVATAR_MAP = {
               <div className="absolute top-full mt-2 w-full min-w-[240px] bg-white rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-line max-h-[350px] overflow-y-auto z-50">
                 <div className="p-3 text-xs text-ink-muted font-bold border-b border-paper">搜尋結果 ({searchResults.length})</div>
                 {searchResults.map(p => (
-                  <div key={p.id} role="button" tabIndex={0} onClick={() => { setSearchSelectedProject(p); setSearchTerm(''); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSearchSelectedProject(p); setSearchTerm(''); } }} className="p-3 border-b border-paper hover:bg-paper cursor-pointer">
+                  <div key={p.id} role="button" tabIndex={0} onClick={(e) => { e.currentTarget.blur(); setSearchSelectedProject(p); setSearchTerm(''); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSearchSelectedProject(p); setSearchTerm(''); } }} className="p-3 border-b border-paper hover:bg-paper cursor-pointer">
                     <div className="font-bold text-ink truncate text-sm">{p.name}</div>
                     <div className="flex justify-between items-center mt-1.5 text-xs text-ink-muted">
                       <span>{p.sales_rep}</span>
