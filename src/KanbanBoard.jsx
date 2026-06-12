@@ -82,7 +82,7 @@ export default function KanbanBoard({ refreshKey, onCopyProject }) {
             </div>
             <div className="flex flex-col gap-3">
               {Array.from({ length: cardCount }).map((_, j) => (
-                <div key={j} className="bg-white border border-line rounded-lg p-4">
+                <div key={j} className="bg-card border border-line rounded-lg p-4">
                   <Skeleton className="h-3 w-16 mb-3" />
                   <Skeleton className="h-4 w-full mb-2" />
                   <Skeleton className="h-4 w-2/3 mb-4" />
@@ -113,7 +113,7 @@ export default function KanbanBoard({ refreshKey, onCopyProject }) {
               <div className="flex justify-between items-center mb-4 px-1 shrink-0">
                 {/* 🔥 調整：將欄位標題放大 */}
                 <h2 className="text-sm md:text-[15px] font-bold text-ink-muted tracking-wide">{columnName}</h2>
-                <span className="text-[11px] font-bold text-ink-muted px-2.5 py-0.5 border border-line bg-white/50 rounded-full">{columnProjects.length}</span>
+                <span className="text-[11px] font-bold text-ink-muted px-2.5 py-0.5 border border-line bg-card/50 rounded-full">{columnProjects.length}</span>
               </div>
 
               <div className="flex flex-col gap-3 overflow-y-auto pr-1 flex-1 min-h-[150px] md:min-h-[200px] pb-2">
@@ -127,7 +127,7 @@ export default function KanbanBoard({ refreshKey, onCopyProject }) {
                     return (
                     <div key={project.id} role="button" tabIndex={0} draggable="true" onClick={(e) => { e.currentTarget.blur(); setSelectedProject(project); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedProject(project); } }} onDragStart={(e) => handleDragStart(e, project.id)} onDragEnd={handleDragEnd}
                       className={`relative p-4 rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.02)] border cursor-pointer hover:border-line-strong transition-all
-                        ${project.has_unread ? 'bg-warning-bg border-warning-line/80' : 'bg-white border-line'}
+                        ${project.has_unread ? 'bg-warning-bg border-warning-line/80' : 'bg-card border-line'}
                       `}
                     >
                       {project.has_unread && (

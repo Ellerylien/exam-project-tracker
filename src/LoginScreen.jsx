@@ -90,7 +90,7 @@ const AVATAR_MAP = {
               {users.map(user => (
                 // 🔥 修改：為整個群組加上 hover:-translate-y-2 的上浮效果
                 <div key={user.id} role="button" tabIndex={0} onClick={() => setSelectedUser(user)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedUser(user); } }} className="group flex flex-col items-center cursor-pointer transition-transform duration-300 ease-out hover:-translate-y-2">
-                  <div className="w-24 h-24 md:w-28 md:h-28 bg-white border border-line group-hover:border-ink rounded-full flex items-center justify-center overflow-hidden transition-all duration-300 p-2 shadow-sm group-hover:shadow-lg">
+                  <div className="w-24 h-24 md:w-28 md:h-28 bg-card border border-line group-hover:border-ink rounded-full flex items-center justify-center overflow-hidden transition-all duration-300 p-2 shadow-sm group-hover:shadow-lg">
                     <img src={getAvatarUrl(user.name)} alt={user.name} className="w-full h-full object-contain" />
                   </div>
                   <span className="mt-4 font-bold text-ink-soft group-hover:text-ink transition-colors">{user.name}</span>
@@ -101,7 +101,7 @@ const AVATAR_MAP = {
           </div>
         ) : (
           <div className="w-full max-w-sm text-center flex flex-col items-center animate-fade-slide-up">
-            <div className="w-20 h-20 bg-white border border-line rounded-full flex items-center justify-center overflow-hidden p-2 mb-4 shadow-sm">
+            <div className="w-20 h-20 bg-card border border-line rounded-full flex items-center justify-center overflow-hidden p-2 mb-4 shadow-sm">
               <img src={getAvatarUrl(selectedUser.name)} alt={selectedUser.name} className="w-full h-full object-contain" />
             </div>
             <h2 className="text-xl font-bold mb-8 text-ink">歡迎回來，{selectedUser.name}</h2>
@@ -116,10 +116,10 @@ const AVATAR_MAP = {
 
             <div className="grid grid-cols-3 gap-5 w-full">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                <button key={num} onClick={() => pin.length < 4 && setPin(p => p + num)} className="h-16 bg-white border border-line hover:border-ink rounded-full text-xl font-medium transition-all active:scale-90 shadow-[0_1px_2px_rgba(0,0,0,0.02)] text-ink-soft">{num}</button>
+                <button key={num} onClick={() => pin.length < 4 && setPin(p => p + num)} className="h-16 bg-card border border-line hover:border-ink rounded-full text-xl font-medium transition-all active:scale-90 shadow-[0_1px_2px_rgba(0,0,0,0.02)] text-ink-soft">{num}</button>
               ))}
               <button onClick={() => { setSelectedUser(null); setPin(''); setError(''); }} className="h-16 text-ink-muted text-sm font-bold hover:text-ink uppercase tracking-widest transition-colors">返回</button>
-              <button onClick={() => pin.length < 4 && setPin(p => p + 0)} className="h-16 bg-white border border-line hover:border-ink rounded-full text-xl font-medium transition-all active:scale-90 shadow-[0_1px_2px_rgba(0,0,0,0.02)] text-ink-soft">0</button>
+              <button onClick={() => pin.length < 4 && setPin(p => p + 0)} className="h-16 bg-card border border-line hover:border-ink rounded-full text-xl font-medium transition-all active:scale-90 shadow-[0_1px_2px_rgba(0,0,0,0.02)] text-ink-soft">0</button>
               <button onClick={() => setPin(p => p.slice(0, -1))} className="h-16 text-ink-muted hover:text-ink text-xl flex items-center justify-center transition-colors">⌫</button>
             </div>
           </div>

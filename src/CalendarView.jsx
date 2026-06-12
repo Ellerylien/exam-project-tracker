@@ -39,7 +39,7 @@ export default function CalendarView({ refreshKey, onCopyProject }) {
         <Skeleton className="h-7 w-24" />
         <Skeleton className="h-9 w-52 rounded-md" />
       </div>
-      <div className="bg-white rounded-xl border border-line overflow-hidden">
+      <div className="bg-card rounded-xl border border-line overflow-hidden">
         <div className="grid grid-cols-7 border-b border-line py-2.5">
           {Array.from({ length: 7 }).map((_, i) => (
             <div key={i} className="flex justify-center"><Skeleton className="h-3 w-6" /></div>
@@ -64,7 +64,7 @@ export default function CalendarView({ refreshKey, onCopyProject }) {
           <h1 className="text-xl md:text-2xl font-bold text-ink">截稿日</h1>
         </div>
         
-        <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-md border border-line shadow-sm">
+        <div className="flex items-center gap-2 bg-card px-3 py-1.5 rounded-md border border-line shadow-sm">
           <button onClick={() => setCurrentDate(new Date(year, month - 1, 1))} className="p-1 text-ink-muted hover:text-ink"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg></button>
           <span className="text-sm md:text-base font-bold text-ink min-w-[100px] text-center">{year} 年 {month + 1} 月</span>
           <button onClick={() => setCurrentDate(new Date(year, month + 1, 1))} className="p-1 text-ink-muted hover:text-ink"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg></button>
@@ -72,7 +72,7 @@ export default function CalendarView({ refreshKey, onCopyProject }) {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-line overflow-x-auto hide-scrollbar">
+      <div className="bg-card rounded-xl border border-line overflow-x-auto hide-scrollbar">
         <div className="min-w-[600px]">
           <div className="grid grid-cols-7 bg-paper/50 border-b border-line">
             {WEEKDAYS.map((day, idx) => (
@@ -86,7 +86,7 @@ export default function CalendarView({ refreshKey, onCopyProject }) {
               const isToday = cell.dateString === new Date().toISOString().split('T')[0];
               return (
                 <div key={cell.key} className="border-r border-b border-line p-2 hover:bg-paper/50 transition-colors">
-                  <div className={`text-xs font-bold mb-2 flex items-center justify-center w-6 h-6 rounded-md ${isToday ? 'bg-ink text-white shadow-sm' : 'text-ink-muted'}`}>
+                  <div className={`text-xs font-bold mb-2 flex items-center justify-center w-6 h-6 rounded-md ${isToday ? 'bg-ink text-paper shadow-sm' : 'text-ink-muted'}`}>
                     {cell.date}
                   </div>
                   <div className="flex flex-col gap-1.5 max-h-[100px] overflow-y-auto hide-scrollbar">
@@ -98,7 +98,7 @@ export default function CalendarView({ refreshKey, onCopyProject }) {
                         onClick={(e) => { e.currentTarget.blur(); setSelectedProject(project); }}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedProject(project); } }}
                         className={`text-xs px-2 py-1.5 rounded-md border truncate cursor-pointer hover:border-line-strong transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.01)]
-                          ${project.status === '排隊區' ? 'bg-white text-ink-soft' : 'bg-info-bg text-info border-info-line/40'}`}
+                          ${project.status === '排隊區' ? 'bg-card text-ink-soft' : 'bg-info-bg text-info border-info-line/40'}`}
                       >
                         {project.name}
                       </div>

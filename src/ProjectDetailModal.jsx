@@ -85,6 +85,17 @@ const AVATAR_MAP = {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProject?.id]);
 
+  // Realtime：訂閱目前開啟專案的留言變動，討論串即時更新
+  useEffect(() => {
+    if (!activeProject?.id) return;
+    const channel = supabase
+      .channel(`comments-${activeProject.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: `project_id=eq.${activeProject.id}` }, () => fetchComments())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProject?.id]);
+
   async function fetchComments() {
     try {
       const { data, error } = await supabase.from('comments').select('*').eq('project_id', activeProject.id).order('created_at', { ascending: true });
@@ -186,10 +197,10 @@ const AVATAR_MAP = {
           <textarea 
             value={editingContent} 
             onChange={(e) => setEditingContent(e.target.value)}
-            className="w-full text-sm p-2.5 bg-white border border-line rounded-md outline-none focus:border-ink-faint shadow-[0_1px_2px_rgba(0,0,0,0.01)] resize-none h-16"
+            className="w-full text-sm p-2.5 bg-card border border-line rounded-md outline-none focus:border-ink-faint shadow-[0_1px_2px_rgba(0,0,0,0.01)] resize-none h-16"
           />
           <div className="flex gap-2 mt-2">
-            <button onClick={() => handleSaveEditComment(comment.id)} className="text-[11px] bg-accent text-white px-3 py-1.5 rounded-md hover:bg-accent-strong font-bold transition-colors">儲存</button>
+            <button onClick={() => handleSaveEditComment(comment.id)} className="text-[11px] bg-accent text-paper px-3 py-1.5 rounded-md hover:bg-accent-strong font-bold transition-colors">儲存</button>
             <button onClick={() => setEditingCommentId(null)} className="text-[11px] bg-paper text-ink-soft px-3 py-1.5 rounded-md border border-line hover:bg-line font-bold transition-colors">取消</button>
           </div>
         </div>
@@ -238,7 +249,7 @@ const AVATAR_MAP = {
           onClick={(e) => e.stopPropagation()}
         >
           
-          <div className="px-5 py-4 border-b border-line flex flex-col gap-3 bg-white shrink-0">
+          <div className="px-5 py-4 border-b border-line flex flex-col gap-3 bg-card shrink-0">
             <div className="flex justify-between items-start gap-2">
               <h2 className="text-lg md:text-xl font-bold break-words pr-2">{activeProject.name}</h2>
               <button onClick={onClose} aria-label="關閉" className="text-ink-muted hover:text-ink bg-paper p-1.5 rounded-md transition-colors shrink-0">
@@ -258,7 +269,7 @@ const AVATAR_MAP = {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-8 bg-white">
+          <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-8 bg-card">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5 text-sm border-b border-line pb-8">
               <div className="flex flex-col gap-1">
                 <span className="text-xs md:text-[13px] font-bold text-ink-muted mb-0.5">當前狀態</span>
@@ -308,8 +319,8 @@ const AVATAR_MAP = {
               <div className="bg-warning-bg/60 border border-warning-line/40 p-5 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
                 <span className="text-sm font-bold text-warning">老師回覆處理</span>
                 <div className="flex gap-2 w-full sm:w-auto">
-                  <button onClick={() => updateProjectStatus('修改題目', true)} className="flex-1 sm:flex-none bg-white text-danger px-5 py-2 rounded-md text-sm font-bold border border-danger-line">需修改</button>
-                  <button onClick={() => { confetti(); updateProjectStatus('製作錄音稿與學生卷', true); }} className="flex-1 sm:flex-none bg-accent hover:bg-accent-strong text-white px-5 py-2 rounded-md text-sm font-bold transition-colors">確認無誤</button>
+                  <button onClick={() => updateProjectStatus('修改題目', true)} className="flex-1 sm:flex-none bg-card text-danger px-5 py-2 rounded-md text-sm font-bold border border-danger-line">需修改</button>
+                  <button onClick={() => { confetti(); updateProjectStatus('製作錄音稿與學生卷', true); }} className="flex-1 sm:flex-none bg-accent hover:bg-accent-strong text-paper px-5 py-2 rounded-md text-sm font-bold transition-colors">確認無誤</button>
                 </div>
               </div>
             )}
@@ -319,7 +330,7 @@ const AVATAR_MAP = {
               <div className="flex flex-col gap-6">
                 {topLevelComments.map(comment => (
                   <div key={comment.id} className="flex gap-3 md:gap-4 group">
-                    <div className="w-10 h-10 shrink-0 bg-white border border-line rounded-full overflow-hidden p-0.5">
+                    <div className="w-10 h-10 shrink-0 bg-card border border-line rounded-full overflow-hidden p-0.5">
                       <img src={getAvatarUrl(comment.author)} alt={comment.author} className="w-full h-full object-contain" />
                     </div>
                     <div className="flex-1 min-w-0 pt-0.5">
@@ -333,7 +344,7 @@ const AVATAR_MAP = {
                       
                       {getReplies(comment.id).map(reply => (
                         <div key={reply.id} className="flex gap-2 md:gap-3 mt-4 pl-3 border-l-2 border-line">
-                          <div className="w-7 h-7 shrink-0 bg-white border border-line rounded-full overflow-hidden p-0.5 mt-0.5">
+                          <div className="w-7 h-7 shrink-0 bg-card border border-line rounded-full overflow-hidden p-0.5 mt-0.5">
                             <img src={getAvatarUrl(reply.author)} alt={reply.author} className="w-full h-full object-contain" />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -356,17 +367,17 @@ const AVATAR_MAP = {
 
           <div className="p-4 border-t border-line bg-paper-warm shrink-0">
             {replyingTo && (
-              <div className="flex items-center justify-between bg-white text-ink-soft text-xs px-3 py-2 rounded-md border border-line mb-3 shadow-[0_1px_2px_rgba(0,0,0,0.01)]">
+              <div className="flex items-center justify-between bg-card text-ink-soft text-xs px-3 py-2 rounded-md border border-line mb-3 shadow-[0_1px_2px_rgba(0,0,0,0.01)]">
                 <span className="truncate">正在回覆 <strong>{replyingTo.author}</strong> : {replyingTo.content}</span>
                 <button onClick={() => setReplyingTo(null)} className="ml-2 font-bold hover:text-danger">&times;</button>
               </div>
             )}
             <div className="flex flex-col sm:flex-row gap-2 items-center">
-              <div className="hidden sm:flex w-8 h-8 rounded-full border border-line bg-white items-center justify-center overflow-hidden shrink-0 shadow-sm">
+              <div className="hidden sm:flex w-8 h-8 rounded-full border border-line bg-card items-center justify-center overflow-hidden shrink-0 shadow-sm">
                 <img src={getAvatarUrl(loggedInUser.name)} alt={loggedInUser.name} className="w-full h-full object-contain p-0.5" />
               </div>
-              <input type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddComment()} placeholder={replyingTo ? `回覆給 ${replyingTo.author}...` : "輸入討論內容..."} className="flex-1 w-full px-4 py-2 bg-white rounded-md outline-none text-sm placeholder:text-ink-faint border border-line focus:border-line-strong transition-all shadow-[0_1px_2px_rgba(0,0,0,0.01)]" />
-              <button onClick={handleAddComment} title="送出" className="w-full sm:w-10 h-10 flex items-center justify-center bg-accent text-white rounded-md hover:bg-accent-strong shadow-sm transition-colors shrink-0">
+              <input type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddComment()} placeholder={replyingTo ? `回覆給 ${replyingTo.author}...` : "輸入討論內容..."} className="flex-1 w-full px-4 py-2 bg-card rounded-md outline-none text-sm placeholder:text-ink-faint border border-line focus:border-line-strong transition-all shadow-[0_1px_2px_rgba(0,0,0,0.01)]" />
+              <button onClick={handleAddComment} title="送出" className="w-full sm:w-10 h-10 flex items-center justify-center bg-accent text-paper rounded-md hover:bg-accent-strong shadow-sm transition-colors shrink-0">
                 <svg className="w-4 h-4 translate-x-[-1px] translate-y-[1px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
               </button>
             </div>

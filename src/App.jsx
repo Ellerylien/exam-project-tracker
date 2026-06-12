@@ -23,6 +23,16 @@ export default function App() {
   const [searchSelectedProject, setSearchSelectedProject] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // 主題：預設跟隨系統，手動切換後記住選擇（index.html 有防閃爍腳本套用初始值）
+  const [theme, setTheme] = useState(() =>
+    localStorage.getItem('theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+  );
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
   // 全站未讀回覆數：登入與資料異動時重算，深層元件透過 UnreadContext 觸發
   const refreshUnread = useCallback(async () => {
     const { count, error } = await supabase.from('projects').select('id', { count: 'exact', head: true }).eq('has_unread', true);
@@ -30,6 +40,22 @@ export default function App() {
   }, []);
 
   useEffect(() => { if (currentUser) refreshUnread(); }, [currentUser, refreshKey, refreshUnread]);
+
+  // Realtime 即時同步：任何人改動 projects 資料表，所有人的畫面自動更新。
+  // 各視圖都以 refreshKey 為重抓依據，所以 bump 一次即可全面刷新；
+  // 300ms 去抖動避免連續事件造成重複請求。
+  useEffect(() => {
+    if (!currentUser) return;
+    let timer = null;
+    const channel = supabase
+      .channel('projects-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => setRefreshKey(k => k + 1), 300);
+      })
+      .subscribe();
+    return () => { clearTimeout(timer); supabase.removeChannel(channel); };
+  }, [currentUser]);
 
 const AVATAR_MAP = { 
     'Deborah': 'Deborah_6', 'Lisa': 'Lisa_50', 'Jessica': 'Jessica_16', 
@@ -88,12 +114,12 @@ const AVATAR_MAP = {
   return (
     <UnreadContext.Provider value={refreshUnread}>
     <div className="min-h-screen bg-paper flex flex-col">
-      <nav className="bg-white shadow-[0_1px_2px_rgba(0,0,0,0.01)] border-b border-line px-4 md:px-8 py-3 flex flex-wrap md:flex-nowrap items-center justify-between z-10 sticky top-0 gap-y-3">
+      <nav className="bg-card shadow-[0_1px_2px_rgba(0,0,0,0.01)] border-b border-line px-4 md:px-8 py-3 flex flex-wrap md:flex-nowrap items-center justify-between z-10 sticky top-0 gap-y-3">
         
         <div className="flex items-center gap-2 md:gap-6 w-full md:w-auto justify-between md:justify-start">
           <div className="flex items-center gap-3 shrink-0">
             {/* 🔥 修改：直接改用內建 SVG，避免外部圖片讀取失敗 */}
-            <div className="w-8 h-8 rounded-lg border border-line bg-white shadow-sm flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-lg border border-line bg-card shadow-sm flex items-center justify-center shrink-0">
               <svg className="w-5 h-5 text-ink" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
               </svg>
@@ -105,10 +131,10 @@ const AVATAR_MAP = {
             <svg className="w-4 h-4 md:w-5 md:h-5 absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             <input 
               type="text" placeholder="搜尋專案、老師..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 pr-3 py-2 bg-paper border border-line rounded-lg focus:outline-none focus:bg-white focus:border-line-strong transition-all w-full md:w-[200px] lg:w-[260px] text-sm text-ink placeholder:text-ink-faint"
+              className="pl-9 pr-3 py-2 bg-paper border border-line rounded-lg focus:outline-none focus:bg-card focus:border-line-strong transition-all w-full md:w-[200px] lg:w-[260px] text-sm text-ink placeholder:text-ink-faint"
             />
             {searchTerm && searchResults.length > 0 && (
-              <div className="absolute top-full mt-2 w-full min-w-[240px] bg-white rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-line max-h-[350px] overflow-y-auto z-50">
+              <div className="absolute top-full mt-2 w-full min-w-[240px] bg-card rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-line max-h-[350px] overflow-y-auto z-50">
                 <div className="p-3 text-xs text-ink-muted font-bold border-b border-paper">搜尋結果 ({searchResults.length})</div>
                 {searchResults.map(p => (
                   <div key={p.id} role="button" tabIndex={0} onClick={(e) => { e.currentTarget.blur(); setSearchSelectedProject(p); setSearchTerm(''); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSearchSelectedProject(p); setSearchTerm(''); } }} className="p-3 border-b border-paper hover:bg-paper cursor-pointer">
@@ -126,26 +152,39 @@ const AVATAR_MAP = {
 
         <div className="flex items-center justify-between w-full md:w-auto gap-2 md:gap-3">
           <div className="flex bg-paper p-1 rounded-lg min-w-0 overflow-x-auto hide-scrollbar">
-            <button onClick={() => setCurrentView('kanban')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'kanban' ? 'bg-white text-ink shadow-[0_1px_3px_rgba(0,0,0,0.03)] font-bold border border-line' : 'text-ink-muted hover:text-ink-soft font-medium'}`}>
+            <button onClick={() => setCurrentView('kanban')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'kanban' ? 'bg-card text-ink shadow-[0_1px_3px_rgba(0,0,0,0.03)] font-bold border border-line' : 'text-ink-muted hover:text-ink-soft font-medium'}`}>
               全專案進度
               {unreadCount > 0 && (
                 <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[11px] font-bold leading-none align-middle" title={`${unreadCount} 個專案有未讀回覆`}>{unreadCount}</span>
               )}
             </button>
-            <button onClick={() => setCurrentView('calendar')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'calendar' ? 'bg-white text-ink shadow-[0_1px_3px_rgba(0,0,0,0.03)] font-bold border border-line' : 'text-ink-muted hover:text-ink-soft font-medium'}`}>截稿日</button>
-            <button onClick={() => setCurrentView('sales')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'sales' ? 'bg-white text-ink shadow-[0_1px_3px_rgba(0,0,0,0.03)] font-bold border border-line' : 'text-ink-muted hover:text-ink-soft font-medium'}`}>業務分區進度</button>
+            <button onClick={() => setCurrentView('calendar')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'calendar' ? 'bg-card text-ink shadow-[0_1px_3px_rgba(0,0,0,0.03)] font-bold border border-line' : 'text-ink-muted hover:text-ink-soft font-medium'}`}>截稿日</button>
+            <button onClick={() => setCurrentView('sales')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'sales' ? 'bg-card text-ink shadow-[0_1px_3px_rgba(0,0,0,0.03)] font-bold border border-line' : 'text-ink-muted hover:text-ink-soft font-medium'}`}>業務分區進度</button>
           </div>
           
           <div className="flex items-center gap-2 shrink-0">
             {currentUser.role?.toLowerCase() !== 'guest' && (
-              <button onClick={handleOpenNew} className="h-8 md:h-9 flex items-center justify-center gap-1.5 bg-accent hover:bg-accent-strong text-white px-2.5 md:px-4 rounded-md transition-colors text-sm font-medium shadow-sm">
+              <button onClick={handleOpenNew} className="h-8 md:h-9 flex items-center justify-center gap-1.5 bg-accent hover:bg-accent-strong text-paper px-2.5 md:px-4 rounded-md transition-colors text-sm font-medium shadow-sm">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
                 <span className="hidden sm:inline">新增專案</span>
               </button>
             )}
 
+            <button
+              onClick={() => setTheme(t => (t === 'dark' ? 'light' : 'dark'))}
+              aria-label={theme === 'dark' ? '切換為亮色模式' : '切換為暗色模式'}
+              title={theme === 'dark' ? '切換為亮色模式' : '切換為暗色模式'}
+              className="w-8 h-8 flex items-center justify-center rounded-md text-ink-muted hover:text-ink hover:bg-paper transition-colors shrink-0"
+            >
+              {theme === 'dark' ? (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+              )}
+            </button>
+
             <div className="flex items-center gap-1.5 md:gap-2 border-l border-line pl-2 md:pl-4">
-              <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-white border border-line flex items-center justify-center overflow-hidden p-0.5 shadow-sm" title={`身份：${currentUser.name}`}>
+              <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-card border border-line flex items-center justify-center overflow-hidden p-0.5 shadow-sm" title={`身份：${currentUser.name}`}>
                 <img src={getAvatarUrl(currentUser.name)} alt={currentUser.name} className="w-full h-full object-contain" />
               </div>
               <button onClick={handleLogout} className="text-xs text-ink-muted hover:text-danger font-medium transition-colors whitespace-nowrap">

@@ -64,7 +64,7 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
           <Skeleton key={i} className="rounded-xl min-h-[110px]" />
         ))}
       </div>
-      <div className="bg-white rounded-xl border border-line overflow-hidden">
+      <div className="bg-card rounded-xl border border-line overflow-hidden">
         <div className="px-5 py-3.5 border-b border-paper"><Skeleton className="h-3 w-24" /></div>
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="flex items-center gap-4 p-4 md:px-5 border-b border-paper last:border-b-0">
@@ -93,7 +93,7 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
         </div>
         
         {/* 仿 Notion 下拉選單：純白底、極細灰框、精緻小字 */}
-        <div className="bg-white rounded-md border border-line px-3 py-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)] flex items-center gap-2.5 w-full sm:w-auto">
+        <div className="bg-card rounded-md border border-line px-3 py-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)] flex items-center gap-2.5 w-full sm:w-auto">
           <label htmlFor="sales-select" className="text-ink-muted font-medium text-xs md:text-sm whitespace-nowrap shrink-0">業務選擇 :</label>
           <div className="relative flex-1 sm:w-auto">
             <select
@@ -141,7 +141,7 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
       </div>
 
       {/* 專案進度直列清單：改為平面無框感，靠細線優雅分割 */}
-      <div className="bg-white rounded-xl border border-line/80 shadow-[0_1px_3px_rgba(0,0,0,0.02)] overflow-hidden">
+      <div className="bg-card rounded-xl border border-line/80 shadow-[0_1px_3px_rgba(0,0,0,0.02)] overflow-hidden">
         <div className="px-5 py-3.5 border-b border-paper bg-paper/50">
           <h2 className="text-xs font-bold uppercase tracking-wider text-ink-muted">專案進度清單</h2>
         </div>

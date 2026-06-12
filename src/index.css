@@ -25,6 +25,7 @@
   --color-paper: #F7F5F0;       /* 全站背景 */
   --color-paper-soft: #F0EEE6;  /* 看板欄、次級底色 */
   --color-paper-warm: #FAF9F6;  /* Modal、輸入框底色 */
+  --color-card: #FFFFFF;        /* 卡片、表面（暗色模式下高於背景一階） */
 
   --color-line: #EBE6DF;        /* 主要框線 */
   --color-line-strong: #D1C9BE; /* hover、強調框線 */
@@ -69,6 +70,48 @@
       transform: translateY(0);
     }
   }
+}
+
+/* ===== 暗色模式 =====
+   所有元件都使用語意化 token，因此只要在 .dark 下重新定義變數即可全站翻轉。
+   色相維持暖棕色系，與亮色模式同一氣質。由 <html> 上的 .dark class 啟用。 */
+.dark {
+  color-scheme: dark;
+
+  --color-paper: #1C1A18;
+  --color-paper-soft: #232120;
+  --color-paper-warm: #24211F;
+  --color-card: #292623;
+
+  --color-line: #393530;
+  --color-line-strong: #4F4942;
+
+  --color-ink: #EAE6E1;
+  --color-ink-soft: #C9C2BA;
+  --color-ink-muted: #A29A91;
+  --color-ink-faint: #6F6861;
+
+  /* 主按鈕在暗色中翻轉為亮面、配深色文字（text-paper） */
+  --color-accent: #CEC5BC;
+  --color-accent-strong: #DDD5CC;
+  --color-overlay: #000000;
+
+  --color-danger: #E29A9C;
+  --color-danger-strong: #EDB6B7;
+  --color-danger-bg: #3B2627;
+  --color-danger-line: #5E393B;
+
+  --color-warning: #D9B36A;
+  --color-warning-bg: #38301F;
+  --color-warning-line: #57482A;
+
+  --color-info: #93C2D6;
+  --color-info-bg: #1F313A;
+  --color-info-line: #32505E;
+
+  --color-success: #93C7AA;
+  --color-success-bg: #20342A;
+  --color-success-line: #355743;
 }
 
 @layer base {

@@ -23,8 +23,8 @@ export default function ConfirmDialog({ open, title, description, confirmLabel =
         <h3 className="font-bold text-ink mb-2">{title}</h3>
         {description && <p className="text-sm text-ink-soft leading-relaxed mb-6">{description}</p>}
         <div className="flex justify-end gap-3">
-          <button onClick={onCancel} className="px-4 py-2 text-sm text-ink-soft bg-white border border-line hover:bg-paper rounded-md font-bold transition-colors">取消</button>
-          <button onClick={onConfirm} className={`px-4 py-2 text-sm text-white rounded-md font-bold transition-colors shadow-sm ${danger ? 'bg-danger hover:bg-danger-strong' : 'bg-accent hover:bg-accent-strong'}`}>{confirmLabel}</button>
+          <button onClick={onCancel} className="px-4 py-2 text-sm text-ink-soft bg-card border border-line hover:bg-paper rounded-md font-bold transition-colors">取消</button>
+          <button onClick={onConfirm} className={`px-4 py-2 text-sm text-paper rounded-md font-bold transition-colors shadow-sm ${danger ? 'bg-danger hover:bg-danger-strong' : 'bg-accent hover:bg-accent-strong'}`}>{confirmLabel}</button>
         </div>
       </div>
     </div>

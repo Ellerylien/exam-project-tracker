@@ -42,7 +42,7 @@ export function ToastProvider({ children }) {
         {toasts.map(t => (
           <div
             key={t.id}
-            className={`pointer-events-auto w-full max-w-sm bg-white border border-line rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.08)] px-4 py-3 flex items-center gap-3 ${
+            className={`pointer-events-auto w-full max-w-sm bg-card border border-line rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.08)] px-4 py-3 flex items-center gap-3 ${
               t.leaving ? 'opacity-0 translate-y-2 transition-all duration-200' : 'animate-fade-slide-up'
             }`}
           >

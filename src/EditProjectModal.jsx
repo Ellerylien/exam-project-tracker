@@ -82,7 +82,7 @@ export default function EditProjectModal({ isOpen, project, onClose, onProjectUp
     }
   };
 
-  const inputClassName = "w-full px-3 py-2 md:py-2.5 bg-paper-warm border border-line rounded-md focus:border-ink-faint focus:bg-white focus:shadow-[0_0_0_1px_var(--color-line)] outline-none text-sm text-ink transition-all shadow-[0_1px_2px_rgba(0,0,0,0.01)]";
+  const inputClassName = "w-full px-3 py-2 md:py-2.5 bg-paper-warm border border-line rounded-md focus:border-ink-faint focus:bg-card focus:shadow-[0_0_0_1px_var(--color-line)] outline-none text-sm text-ink transition-all shadow-[0_1px_2px_rgba(0,0,0,0.01)]";
   const labelClassName = "block text-xs font-bold text-ink-muted mb-1.5";
 
   return (
@@ -102,14 +102,14 @@ export default function EditProjectModal({ isOpen, project, onClose, onProjectUp
         onClick={(e) => e.stopPropagation()}
       >
         
-        <div className="px-5 py-4 border-b border-line flex justify-between items-center bg-white shrink-0">
+        <div className="px-5 py-4 border-b border-line flex justify-between items-center bg-card shrink-0">
           <h2 className="text-lg md:text-xl font-bold text-ink">編輯專案</h2>
           <button onClick={onClose} aria-label="關閉" className="text-ink-muted hover:text-ink bg-paper p-1.5 rounded-md transition-colors shrink-0">
             <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 md:p-8 bg-white">
+        <div className="flex-1 overflow-y-auto p-5 md:p-8 bg-card">
           <form id="edit-project-form" onSubmit={handleSubmit} className="flex flex-col gap-6 md:gap-7">
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
@@ -188,8 +188,8 @@ export default function EditProjectModal({ isOpen, project, onClose, onProjectUp
         </div>
 
         <div className="px-5 py-4 border-t border-line bg-paper-warm flex justify-end gap-3 shrink-0">
-          <button type="button" onClick={onClose} className="px-5 py-2 md:py-2.5 text-sm text-ink-soft bg-white border border-line hover:bg-paper rounded-md font-bold transition-colors">取消</button>
-          <button type="submit" form="edit-project-form" disabled={isSubmitting} className="px-5 py-2 md:py-2.5 text-sm bg-accent text-white rounded-md font-bold hover:bg-accent-strong transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50">
+          <button type="button" onClick={onClose} className="px-5 py-2 md:py-2.5 text-sm text-ink-soft bg-card border border-line hover:bg-paper rounded-md font-bold transition-colors">取消</button>
+          <button type="submit" form="edit-project-form" disabled={isSubmitting} className="px-5 py-2 md:py-2.5 text-sm bg-accent text-paper rounded-md font-bold hover:bg-accent-strong transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50">
             {isSubmitting ? '儲存中...' : '儲存變更'}
           </button>
         </div>
