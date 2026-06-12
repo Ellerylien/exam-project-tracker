@@ -111,7 +111,7 @@ export default function CalendarView({ refreshKey, onCopyProject }) {
         </div>
       </div>
 
-      <ProjectDetailModal project={selectedProject} onClose={() => setSelectedProject(null)} onProjectDeleted={() => { fetchProjects(); setSelectedProject(null); }} onProjectUpdated={() => { fetchProjects(); setSelectedProject(null); }} onCopyProject={onCopyProject} />
+      <ProjectDetailModal project={selectedProject} onClose={() => setSelectedProject(null)} onStatusChange={() => fetchProjects()} onProjectDeleted={() => { fetchProjects(); setSelectedProject(null); }} onProjectUpdated={() => { fetchProjects(); setSelectedProject(null); }} onCopyProject={onCopyProject} />
     </div>
   );
 }

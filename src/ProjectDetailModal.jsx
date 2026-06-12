@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from './supabaseClient';
 import confetti from 'canvas-confetti';
 import EditProjectModal from './EditProjectModal';
+import { STATUSES } from './constants';
 
 export default function ProjectDetailModal({ project, onClose, onStatusChange, onProjectDeleted, onProjectUpdated, onCopyProject }) {
   const [activeProject, setActiveProject] = useState(null);
@@ -53,10 +54,11 @@ const AVATAR_MAP = {
   }, [project]);
 
   useEffect(() => {
-    const handleKeyDown = (e) => { if (e.key === 'Escape' && isVisible) onClose(); };
-    window.addEventListener('keydown', handleKeyDown); 
+    // 編輯視窗開啟時讓它自己處理 ESC，避免一次關閉兩層
+    const handleKeyDown = (e) => { if (e.key === 'Escape' && isVisible && !isEditModalOpen) onClose(); };
+    window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isVisible, onClose]);
+  }, [isVisible, onClose, isEditModalOpen]);
 
   useEffect(() => { 
     if (activeProject) {
@@ -124,6 +126,13 @@ const AVATAR_MAP = {
       await supabase.from('projects').update({ status: newStatus, has_unread: setUnread }).eq('id', activeProject.id);
       if (onStatusChange) onStatusChange(activeProject.id, newStatus, setUnread); onClose();
     } catch (error) { alert('更新失敗'); }
+  };
+
+  // 下拉選單切換狀態：手機無法拖曳看板卡片，這是行動裝置唯一的換階段途徑
+  const handleStatusSelect = (newStatus) => {
+    if (newStatus === activeProject.status) return;
+    if (newStatus === '結案') confetti();
+    updateProjectStatus(newStatus);
   };
 
   const handleCopyEmail = async () => {
@@ -218,8 +227,22 @@ const AVATAR_MAP = {
 
           <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-8 bg-white">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5 text-sm border-b border-line pb-8">
+              <div className="flex flex-col gap-1">
+                <span className="text-xs md:text-[13px] font-bold text-ink-muted mb-0.5">當前狀態</span>
+                <div className="relative w-fit">
+                  <select
+                    value={activeProject.status}
+                    onChange={(e) => handleStatusSelect(e.target.value)}
+                    className="appearance-none bg-paper border border-line hover:border-line-strong rounded-md pl-3 pr-9 py-1.5 text-sm font-semibold text-ink cursor-pointer focus:outline-none focus:border-line-strong transition-colors"
+                  >
+                    {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-ink-muted">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                  </div>
+                </div>
+              </div>
               {[
-                { label: '當前狀態', value: activeProject.status, highlight: true },
                 { label: '截止日期', value: activeProject.deadline || '未設定' },
                 { label: '考試範圍', value: activeProject.scope || '無' },
                 { label: '負責業務', value: activeProject.sales_rep },

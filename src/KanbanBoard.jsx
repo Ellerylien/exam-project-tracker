@@ -4,13 +4,13 @@ import confetti from 'canvas-confetti';
 import ProjectDetailModal from './ProjectDetailModal';
 import { getDeadlineInfo } from './deadline';
 import Skeleton from './Skeleton';
-
-const COLUMNS = ['排隊區', '出題中', '修改題目', '待老師回覆', '製作錄音稿與學生卷', '待音檔送件', '結案'];
+import { STATUSES } from './constants';
 
 export default function KanbanBoard({ refreshKey, onCopyProject }) {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState(null);
+  const [dragOverColumn, setDragOverColumn] = useState(null);
   const boardRef = useRef(null); 
   const isDown = useRef(false);
   const startX = useRef(0);
@@ -32,7 +32,7 @@ export default function KanbanBoard({ refreshKey, onCopyProject }) {
   const handleMouseUp = () => { isDown.current = false; };
   const handleMouseMove = (e) => { if (!isDown.current) return; e.preventDefault(); const x = e.pageX - boardRef.current.offsetLeft; const walk = (x - startX.current) * 1.5; boardRef.current.scrollLeft = scrollLeft.current - walk; };
   const handleDragStart = (e, id) => { isDown.current = false; e.dataTransfer.setData('projectId', id); e.currentTarget.style.opacity = '0.4'; };
-  const handleDragEnd = (e) => { e.currentTarget.style.opacity = '1'; stopAutoScroll(); };
+  const handleDragEnd = (e) => { e.currentTarget.style.opacity = '1'; stopAutoScroll(); setDragOverColumn(null); };
   const handleBoardDragOver = (e) => {
     e.preventDefault(); if (!boardRef.current) return;
     const { left, width } = boardRef.current.getBoundingClientRect();
@@ -43,7 +43,7 @@ export default function KanbanBoard({ refreshKey, onCopyProject }) {
   const stopAutoScroll = () => { if (scrollIntervalRef.current) { clearInterval(scrollIntervalRef.current); scrollIntervalRef.current = null; } };
 
   const handleDrop = async (e, newStatus) => {
-    e.preventDefault(); stopAutoScroll(); 
+    e.preventDefault(); stopAutoScroll(); setDragOverColumn(null);
     const projectId = e.dataTransfer.getData('projectId');
     if (!projectId) return;
     setProjects(projects.map(p => p.id === projectId ? { ...p, status: newStatus } : p));
@@ -86,10 +86,11 @@ export default function KanbanBoard({ refreshKey, onCopyProject }) {
       <div ref={boardRef} onMouseDown={handleMouseDown} onMouseLeave={handleMouseLeave} onMouseUp={handleMouseUp} onMouseMove={handleMouseMove} onDragOver={handleBoardDragOver}
         className="flex gap-4 md:gap-6 overflow-x-auto pb-6 cursor-grab active:cursor-grabbing flex-1 hide-scrollbar" 
       >
-        {COLUMNS.map((columnName) => {
+        {STATUSES.map((columnName) => {
           const columnProjects = projects.filter((p) => p.status === columnName);
+          const isDragTarget = dragOverColumn === columnName;
           return (
-            <div key={columnName} className="bg-paper-soft/80 border border-line rounded-xl p-3 md:p-4 min-w-[280px] md:min-w-[320px] flex flex-col h-fit max-h-[calc(100vh-140px)] md:max-h-[75vh]" onDragOver={e=>e.preventDefault()} onDrop={(e) => handleDrop(e, columnName)}>
+            <div key={columnName} className={`border rounded-xl p-3 md:p-4 min-w-[280px] md:min-w-[320px] flex flex-col h-fit max-h-[calc(100vh-140px)] md:max-h-[75vh] transition-colors duration-150 ${isDragTarget ? 'bg-line/60 border-line-strong' : 'bg-paper-soft/80 border-line'}`} onDragOver={(e) => { e.preventDefault(); if (dragOverColumn !== columnName) setDragOverColumn(columnName); }} onDrop={(e) => handleDrop(e, columnName)}>
               <div className="flex justify-between items-center mb-4 px-1 shrink-0">
                 {/* 🔥 調整：將欄位標題放大 */}
                 <h2 className="text-sm md:text-[15px] font-bold text-ink-muted tracking-wide">{columnName}</h2>
