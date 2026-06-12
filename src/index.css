@@ -1,1 +1,73 @@
 @import "tailwindcss";
+
+@theme {
+  /* ===== 字體 ===== */
+  --font-sans: "Swei Spring", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+
+  /* ===== 中性色（米灰紙感）===== */
+  --color-paper: #F7F5F0;       /* 全站背景 */
+  --color-paper-soft: #F0EEE6;  /* 看板欄、次級底色 */
+  --color-paper-warm: #FAF9F6;  /* Modal、輸入框底色 */
+
+  --color-line: #EBE6DF;        /* 主要框線 */
+  --color-line-strong: #D1C9BE; /* hover、強調框線 */
+
+  --color-ink: #4A4542;         /* 標題、主要文字 */
+  --color-ink-soft: #635B56;    /* 正文 */
+  --color-ink-muted: #756B64;   /* 次要文字、欄位標籤（深至 4.5:1 對比） */
+  --color-ink-faint: #B3AAA0;   /* placeholder、提示 */
+
+  --color-accent: #5C544D;        /* 主按鈕 */
+  --color-accent-strong: #4A433D; /* 主按鈕 hover */
+  --color-overlay: #2C2A29;       /* Modal 遮罩 */
+
+  /* ===== 狀態色（低飽和 Notion 風）===== */
+  --color-danger: #9C3A3C;
+  --color-danger-bg: #FAEBEC;
+  --color-danger-line: #E9C4C6;
+
+  --color-warning: #8F6B1A;
+  --color-warning-bg: #FBF3DB;
+  --color-warning-line: #E9DBB9;
+
+  --color-info: #2B5D72;
+  --color-info-bg: #EDF3F5;
+  --color-info-line: #D3E3E8;
+
+  /* ===== 動畫 ===== */
+  --animate-fade-slide-up: fade-slide-up 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+
+  @keyframes fade-slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(15px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+@layer base {
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+
+  /* 鍵盤聚焦時的一致外框（滑鼠點擊不顯示） */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+@utility hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

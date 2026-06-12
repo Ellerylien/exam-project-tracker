@@ -78,34 +78,22 @@ const AVATAR_MAP = {
     }
   }, [pin, selectedUser, onLoginSuccess]);
 
-  if (loading) return <div className="min-h-screen bg-[#F7F5F0] flex items-center justify-center text-[#938A82] text-sm font-medium animate-pulse">正在準備您的工作空間...</div>;
+  if (loading) return <div className="min-h-screen bg-paper flex items-center justify-center text-ink-muted text-sm font-medium animate-pulse">正在準備您的工作空間...</div>;
 
   return (
-    <>
-      {/* 注入專屬的極簡過場動畫 */}
-      <style>{`
-        @keyframes fadeSlideUp {
-          from { opacity: 0; transform: translateY(15px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-slide-up {
-          animation: fadeSlideUp 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-        }
-      `}</style>
-
-      <div className={`min-h-screen bg-[#F7F5F0] flex flex-col items-center justify-center p-6 text-[#4A4542] transition-opacity duration-400 ease-in-out ${isFadingOut ? 'opacity-0' : 'opacity-100'}`}>
+    <div className={`min-h-screen bg-paper flex flex-col items-center justify-center p-6 text-ink transition-opacity duration-400 ease-in-out ${isFadingOut ? 'opacity-0' : 'opacity-100'}`}>
         {!selectedUser ? (
           <div className="w-full max-w-3xl text-center animate-fade-slide-up">
-            <h1 className="text-3xl font-bold mb-3 tracking-tight text-[#4A4542]">誰正在使用系統？</h1>
-            <p className="text-[#938A82] text-sm mb-16">請選擇您的身份進入</p>
+            <h1 className="text-3xl font-bold mb-3 tracking-tight text-ink">誰正在使用系統？</h1>
+            <p className="text-ink-muted text-sm mb-16">請選擇您的身份進入</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-8 gap-y-12">
               {users.map(user => (
                 // 🔥 修改：為整個群組加上 hover:-translate-y-2 的上浮效果
-                <div key={user.id} onClick={() => setSelectedUser(user)} className="group flex flex-col items-center cursor-pointer transition-transform duration-300 ease-out hover:-translate-y-2">
-                  <div className="w-24 h-24 md:w-28 md:h-28 bg-white border border-[#EBE6DF] group-hover:border-[#4A4542] rounded-full flex items-center justify-center overflow-hidden transition-all duration-300 p-2 shadow-sm group-hover:shadow-lg">
-                    <img src={getAvatarUrl(user.name)} className="w-full h-full object-contain" />
+                <div key={user.id} role="button" tabIndex={0} onClick={() => setSelectedUser(user)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedUser(user); } }} className="group flex flex-col items-center cursor-pointer transition-transform duration-300 ease-out hover:-translate-y-2">
+                  <div className="w-24 h-24 md:w-28 md:h-28 bg-white border border-line group-hover:border-ink rounded-full flex items-center justify-center overflow-hidden transition-all duration-300 p-2 shadow-sm group-hover:shadow-lg">
+                    <img src={getAvatarUrl(user.name)} alt={user.name} className="w-full h-full object-contain" />
                   </div>
-                  <span className="mt-4 font-bold text-[#635B56] group-hover:text-[#4A4542] transition-colors">{user.name}</span>
+                  <span className="mt-4 font-bold text-ink-soft group-hover:text-ink transition-colors">{user.name}</span>
                   {/* 🔥 修改：已將身份文字刪除，保持極簡留白 */}
                 </div>
               ))}
@@ -113,30 +101,29 @@ const AVATAR_MAP = {
           </div>
         ) : (
           <div className="w-full max-w-sm text-center flex flex-col items-center animate-fade-slide-up">
-            <div className="w-20 h-20 bg-white border border-[#EBE6DF] rounded-full flex items-center justify-center overflow-hidden p-2 mb-4 shadow-sm">
-              <img src={getAvatarUrl(selectedUser.name)} className="w-full h-full object-contain" />
+            <div className="w-20 h-20 bg-white border border-line rounded-full flex items-center justify-center overflow-hidden p-2 mb-4 shadow-sm">
+              <img src={getAvatarUrl(selectedUser.name)} alt={selectedUser.name} className="w-full h-full object-contain" />
             </div>
-            <h2 className="text-xl font-bold mb-8 text-[#4A4542]">歡迎回來，{selectedUser.name}</h2>
+            <h2 className="text-xl font-bold mb-8 text-ink">歡迎回來，{selectedUser.name}</h2>
             
             <div className="flex gap-5 mb-12">
               {[0, 1, 2, 3].map(i => (
-                <div key={i} className={`w-3 h-3 rounded-full transition-all duration-300 ${pin.length > i ? 'bg-[#4A4542] scale-125 shadow-sm' : 'bg-[#EBE6DF]'}`} />
+                <div key={i} className={`w-3 h-3 rounded-full transition-all duration-300 ${pin.length > i ? 'bg-ink scale-125 shadow-sm' : 'bg-line'}`} />
               ))}
             </div>
 
-            {error && <p className="text-red-400 text-xs font-bold mb-6 animate-bounce">{error}</p>}
+            {error && <p className="text-danger text-xs font-bold mb-6 animate-bounce">{error}</p>}
 
             <div className="grid grid-cols-3 gap-5 w-full">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                <button key={num} onClick={() => pin.length < 4 && setPin(p => p + num)} className="h-16 bg-white border border-[#EBE6DF] hover:border-[#4A4542] rounded-full text-xl font-medium transition-all active:scale-90 shadow-[0_1px_2px_rgba(0,0,0,0.02)] text-[#635B56]">{num}</button>
+                <button key={num} onClick={() => pin.length < 4 && setPin(p => p + num)} className="h-16 bg-white border border-line hover:border-ink rounded-full text-xl font-medium transition-all active:scale-90 shadow-[0_1px_2px_rgba(0,0,0,0.02)] text-ink-soft">{num}</button>
               ))}
-              <button onClick={() => { setSelectedUser(null); setPin(''); setError(''); }} className="h-16 text-[#938A82] text-sm font-bold hover:text-[#4A4542] uppercase tracking-widest transition-colors">返回</button>
-              <button onClick={() => pin.length < 4 && setPin(p => p + 0)} className="h-16 bg-white border border-[#EBE6DF] hover:border-[#4A4542] rounded-full text-xl font-medium transition-all active:scale-90 shadow-[0_1px_2px_rgba(0,0,0,0.02)] text-[#635B56]">0</button>
-              <button onClick={() => setPin(p => p.slice(0, -1))} className="h-16 text-[#938A82] hover:text-[#4A4542] text-xl flex items-center justify-center transition-colors">⌫</button>
+              <button onClick={() => { setSelectedUser(null); setPin(''); setError(''); }} className="h-16 text-ink-muted text-sm font-bold hover:text-ink uppercase tracking-widest transition-colors">返回</button>
+              <button onClick={() => pin.length < 4 && setPin(p => p + 0)} className="h-16 bg-white border border-line hover:border-ink rounded-full text-xl font-medium transition-all active:scale-90 shadow-[0_1px_2px_rgba(0,0,0,0.02)] text-ink-soft">0</button>
+              <button onClick={() => setPin(p => p.slice(0, -1))} className="h-16 text-ink-muted hover:text-ink text-xl flex items-center justify-center transition-colors">⌫</button>
             </div>
           </div>
         )}
-      </div>
-    </>
+    </div>
   );
 }

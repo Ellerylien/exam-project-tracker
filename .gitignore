@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# 環境變數（Supabase 金鑰）
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

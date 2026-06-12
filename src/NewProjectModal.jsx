@@ -70,30 +70,33 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
     }
   };
 
-  const CopyWarning = () => isCopyMode ? <span className="text-[10px] text-[#9C3A3C] bg-[#FAEBEC] border border-[#E9C4C6]/60 px-1.5 py-0.5 rounded ml-2 animate-pulse font-normal tracking-wider">⚠️ 請記得修改</span> : null;
+  const CopyWarning = () => isCopyMode ? <span className="text-[11px] text-danger bg-danger-bg border border-danger-line/60 px-1.5 py-0.5 rounded ml-2 animate-pulse font-normal tracking-wider">⚠️ 請記得修改</span> : null;
 
-  const inputClassName = "w-full px-3 py-2 md:py-2.5 bg-[#FAF9F6] border border-[#EBE6DF] rounded-md focus:border-[#B3AAA0] focus:bg-white focus:shadow-[0_0_0_1px_#EBE6DF] outline-none text-sm text-[#4A4542] transition-all shadow-[0_1px_2px_rgba(0,0,0,0.01)]";
-  const labelClassName = "block text-xs font-bold text-[#938A82] mb-1.5";
+  const inputClassName = "w-full px-3 py-2 md:py-2.5 bg-paper-warm border border-line rounded-md focus:border-ink-faint focus:bg-white focus:shadow-[0_0_0_1px_var(--color-line)] outline-none text-sm text-ink transition-all shadow-[0_1px_2px_rgba(0,0,0,0.01)]";
+  const labelClassName = "block text-xs font-bold text-ink-muted mb-1.5";
 
   return (
     <div 
-      className={`fixed inset-0 bg-[#2C2A29]/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300 ease-out
+      className={`fixed inset-0 bg-overlay/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300 ease-out
         ${isVisible ? 'opacity-100' : 'opacity-0'}
       `} 
       onClick={onClose}
     >
-      <div 
-        className={`bg-[#FAF9F6] rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] md:max-h-[90vh] flex flex-col overflow-hidden text-[#4A4542] transition-all duration-300 ease-out transform
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={isCopyMode ? '複製專案' : '新增專案'}
+        className={`bg-paper-warm rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] md:max-h-[90vh] flex flex-col overflow-hidden text-ink transition-all duration-300 ease-out transform
           ${isVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 sm:translate-y-12 scale-95'}
         `}
         onClick={(e) => e.stopPropagation()}
       >
         
-        <div className="px-5 py-4 border-b border-[#EBE6DF] flex justify-between items-center bg-white shrink-0">
-          <h2 className="text-lg md:text-xl font-bold text-[#4A4542]">
+        <div className="px-5 py-4 border-b border-line flex justify-between items-center bg-white shrink-0">
+          <h2 className="text-lg md:text-xl font-bold text-ink">
             {isCopyMode ? '複製專案' : '新增專案'}
           </h2>
-          <button onClick={onClose} className="text-[#938A82] hover:text-[#4A4542] bg-[#F7F5F0] p-1.5 rounded-md transition-colors shrink-0">
+          <button onClick={onClose} aria-label="關閉" className="text-ink-muted hover:text-ink bg-paper p-1.5 rounded-md transition-colors shrink-0">
             <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
           </button>
         </div>
@@ -103,46 +106,46 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
               <div>
-                <label className={labelClassName}>專案名稱 <span className="text-red-400">*</span> <CopyWarning /></label>
+                <label className={labelClassName}>專案名稱 <span className="text-danger">*</span> <CopyWarning /></label>
                 <input type="text" name="name" value={formData.name} onChange={handleChange} className={inputClassName} required />
               </div>
               <div>
-                <label className={labelClassName}>審稿截止日 <span className="text-red-400">*</span></label>
+                <label className={labelClassName}>審稿截止日 <span className="text-danger">*</span></label>
                 <input type="date" name="deadline" value={formData.deadline} onChange={handleChange} className={inputClassName} required />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
               <div>
-                <label className={labelClassName}>閱卷老師 <span className="text-red-400">*</span> <CopyWarning /></label>
+                <label className={labelClassName}>閱卷老師 <span className="text-danger">*</span> <CopyWarning /></label>
                 <input type="text" name="teacher_name" value={formData.teacher_name} onChange={handleChange} className={inputClassName} required />
               </div>
               <div>
-                <label className={labelClassName}>老師 Email <span className="text-red-400">*</span> <CopyWarning /></label>
+                <label className={labelClassName}>老師 Email <span className="text-danger">*</span> <CopyWarning /></label>
                 <input type="email" name="teacher_email" value={formData.teacher_email} onChange={handleChange} className={inputClassName} required />
               </div>
             </div>
 
             <div>
-              <label className={labelClassName}>考試範圍 <span className="text-red-400">*</span> <CopyWarning /></label>
+              <label className={labelClassName}>考試範圍 <span className="text-danger">*</span> <CopyWarning /></label>
               <input type="text" name="scope" value={formData.scope} onChange={handleChange} className={inputClassName} required />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6 bg-[#F7F5F0]/50 p-4 rounded-lg border border-[#EBE6DF]/50">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6 bg-paper/50 p-4 rounded-lg border border-line/50">
               <div>
-                <label className={labelClassName}>負責業務 <span className="text-red-400">*</span></label>
+                <label className={labelClassName}>負責業務 <span className="text-danger">*</span></label>
                 <select name="sales_rep" value={formData.sales_rep} onChange={handleChange} className={inputClassName} required>
                   <option value="">請下拉選擇</option><option value="Deborah">Deborah</option><option value="Mark">Mark</option><option value="Richard">Richard</option>
                 </select>
               </div>
               <div>
-                <label className={labelClassName}>負責業助 <span className="text-red-400">*</span></label>
+                <label className={labelClassName}>負責業助 <span className="text-danger">*</span></label>
                 <select name="sales_assistant" value={formData.sales_assistant} onChange={handleChange} className={inputClassName} required>
                   <option value="">請下拉選擇</option><option value="Lisa">Lisa</option><option value="Jessica">Jessica</option><option value="Wanda">Wanda</option>
                 </select>
               </div>
               <div>
-                <label className={labelClassName}>製作人員 <span className="text-red-400">*</span></label>
+                <label className={labelClassName}>製作人員 <span className="text-danger">*</span></label>
                 <select name="production_staff" value={formData.production_staff} onChange={handleChange} className={inputClassName} required>
                   <option value="">請下拉選擇</option><option value="Ellery">Ellery</option><option value="Richard">Richard</option>
                 </select>
@@ -152,9 +155,9 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
               <div>
                 <div className="flex justify-between items-center mb-1.5">
-                  <label className="block text-xs font-bold text-[#938A82]">聽力題型 <span className="text-red-400">*</span></label>
+                  <label className="block text-xs font-bold text-ink-muted">聽力題型 <span className="text-danger">*</span></label>
                   {/* 🔥 更新：放大按鈕、改用 MUJI 燕麥色與微陰影 */}
-                  <button type="button" onClick={() => handleSetSameAsBefore('listening_types')} className="text-xs bg-[#EBE6DF] text-[#5C544D] px-3 py-1 rounded-md shadow-[0_1px_2px_rgba(0,0,0,0.05)] border border-[#DCD6CE] hover:bg-[#DCD6CE] transition-colors font-bold">
+                  <button type="button" onClick={() => handleSetSameAsBefore('listening_types')} className="text-xs bg-line text-accent px-3 py-1 rounded-md shadow-[0_1px_2px_rgba(0,0,0,0.05)] border border-line-strong hover:bg-line-strong transition-colors font-bold">
                     照舊
                   </button>
                 </div>
@@ -162,9 +165,9 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
               </div>
               <div>
                 <div className="flex justify-between items-center mb-1.5">
-                  <label className="block text-xs font-bold text-[#938A82]">閱讀題型 <span className="text-red-400">*</span></label>
+                  <label className="block text-xs font-bold text-ink-muted">閱讀題型 <span className="text-danger">*</span></label>
                   {/* 🔥 更新：放大按鈕、改用 MUJI 燕麥色與微陰影 */}
-                  <button type="button" onClick={() => handleSetSameAsBefore('reading_types')} className="text-xs bg-[#EBE6DF] text-[#5C544D] px-3 py-1 rounded-md shadow-[0_1px_2px_rgba(0,0,0,0.05)] border border-[#DCD6CE] hover:bg-[#DCD6CE] transition-colors font-bold">
+                  <button type="button" onClick={() => handleSetSameAsBefore('reading_types')} className="text-xs bg-line text-accent px-3 py-1 rounded-md shadow-[0_1px_2px_rgba(0,0,0,0.05)] border border-line-strong hover:bg-line-strong transition-colors font-bold">
                     照舊
                   </button>
                 </div>
@@ -179,11 +182,11 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
           </form>
         </div>
 
-        <div className="px-5 py-4 border-t border-[#EBE6DF] bg-[#FAF9F6] flex justify-end gap-3 shrink-0">
-          <button type="button" onClick={onClose} className="px-5 py-2 md:py-2.5 text-sm text-[#635B56] bg-white border border-[#EBE6DF] hover:bg-[#F7F5F0] rounded-md font-bold transition-colors">
+        <div className="px-5 py-4 border-t border-line bg-paper-warm flex justify-end gap-3 shrink-0">
+          <button type="button" onClick={onClose} className="px-5 py-2 md:py-2.5 text-sm text-ink-soft bg-white border border-line hover:bg-paper rounded-md font-bold transition-colors">
             取消
           </button>
-          <button type="submit" form="new-project-form" disabled={isSubmitting} className="px-5 py-2 md:py-2.5 text-sm bg-[#5C544D] text-white rounded-md font-bold hover:bg-[#4A433D] transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50">
+          <button type="submit" form="new-project-form" disabled={isSubmitting} className="px-5 py-2 md:py-2.5 text-sm bg-accent text-white rounded-md font-bold hover:bg-accent-strong transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50">
             {isSubmitting ? '處理中...' : (isCopyMode ? '儲存複製專案' : '儲存專案')}
           </button>
         </div>
