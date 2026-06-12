@@ -1,18 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabaseClient';
 import { useToast } from './toast';
+import ConfirmDialog from './ConfirmDialog';
+
+const EMPTY_FORM = {
+  name: '', deadline: '', teacher_name: '', teacher_email: '', scope: '', sales_rep: '', sales_assistant: '', production_staff: '', listening_types: '', reading_types: '', notes: '', status: '排隊區'
+};
 
 export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initialData }) {
   const toast = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCopyMode, setIsCopyMode] = useState(false);
-  
+
   const [isRendered, setIsRendered] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
-  
-  const [formData, setFormData] = useState({
-    name: '', deadline: '', teacher_name: '', teacher_email: '', scope: '', sales_rep: '', sales_assistant: '', production_staff: '', listening_types: '', reading_types: '', notes: '', status: '排隊區'
-  });
+  // 表單有未儲存變動時，關閉前先確認
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const initialFormRef = useRef(JSON.stringify(EMPTY_FORM));
+
+  const [formData, setFormData] = useState(EMPTY_FORM);
+
+  const requestClose = () => {
+    if (JSON.stringify(formData) !== initialFormRef.current) setConfirmDiscard(true);
+    else onClose();
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -27,21 +38,20 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isVisible) onClose();
+      // 捨棄確認視窗開啟時由它自己處理 ESC
+      if (e.key === 'Escape' && isVisible && !confirmDiscard) requestClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isVisible, onClose]);
+  });
 
   useEffect(() => {
     if (isOpen) {
-      if (initialData) {
-        setIsCopyMode(true);
-        setFormData({ ...initialData, deadline: '', status: '排隊區' });
-      } else {
-        setIsCopyMode(false);
-        setFormData({ name: '', deadline: '', teacher_name: '', teacher_email: '', scope: '', sales_rep: '', sales_assistant: '', production_staff: '', listening_types: '', reading_types: '', notes: '', status: '排隊區' });
-      }
+      setConfirmDiscard(false);
+      const initial = initialData ? { ...initialData, deadline: '', status: '排隊區' } : EMPTY_FORM;
+      setIsCopyMode(!!initialData);
+      setFormData(initial);
+      initialFormRef.current = JSON.stringify(initial);
     }
   }, [isOpen, initialData]);
 
@@ -79,11 +89,12 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
   const labelClassName = "block text-xs font-bold text-ink-muted mb-1.5";
 
   return (
-    <div 
+    <>
+    <div
       className={`fixed inset-0 bg-overlay/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300 ease-out
         ${isVisible ? 'opacity-100' : 'opacity-0'}
-      `} 
-      onClick={onClose}
+      `}
+      onClick={requestClose}
     >
       <div
         role="dialog"
@@ -99,7 +110,7 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
           <h2 className="text-lg md:text-xl font-bold text-ink">
             {isCopyMode ? '複製專案' : '新增專案'}
           </h2>
-          <button onClick={onClose} aria-label="關閉" className="text-ink-muted hover:text-ink bg-paper p-1.5 rounded-md transition-colors shrink-0">
+          <button onClick={requestClose} aria-label="關閉" className="text-ink-muted hover:text-ink bg-paper p-1.5 rounded-md transition-colors shrink-0">
             <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
           </button>
         </div>
@@ -186,7 +197,7 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
         </div>
 
         <div className="px-5 py-4 border-t border-line bg-paper-warm flex justify-end gap-3 shrink-0">
-          <button type="button" onClick={onClose} className="px-5 py-2 md:py-2.5 text-sm text-ink-soft bg-card border border-line hover:bg-paper rounded-md font-bold transition-colors">
+          <button type="button" onClick={requestClose} className="px-5 py-2 md:py-2.5 text-sm text-ink-soft bg-card border border-line hover:bg-paper rounded-md font-bold transition-colors">
             取消
           </button>
           <button type="submit" form="new-project-form" disabled={isSubmitting} className="px-5 py-2 md:py-2.5 text-sm bg-accent text-paper rounded-md font-bold hover:bg-accent-strong transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50">
@@ -195,5 +206,15 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
         </div>
       </div>
     </div>
+    <ConfirmDialog
+      open={confirmDiscard}
+      danger
+      title="捨棄未儲存的內容？"
+      description="表單內容尚未儲存，關閉後將會消失。"
+      confirmLabel="捨棄"
+      onCancel={() => setConfirmDiscard(false)}
+      onConfirm={() => { setConfirmDiscard(false); onClose(); }}
+    />
+    </>
   );
 }

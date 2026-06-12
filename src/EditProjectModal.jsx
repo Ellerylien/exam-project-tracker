@@ -1,21 +1,32 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabaseClient';
 import { useToast } from './toast';
+import ConfirmDialog from './ConfirmDialog';
 
 export default function EditProjectModal({ isOpen, project, onClose, onProjectUpdated }) {
   const toast = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const [isRendered, setIsRendered] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  // 表單有未儲存變動時，關閉前先確認
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const initialFormRef = useRef('');
 
   const [formData, setFormData] = useState({
     name: '', deadline: '', teacher_name: '', teacher_email: '', scope: '', sales_rep: '', sales_assistant: '', production_staff: '', listening_types: '', reading_types: '', notes: ''
   });
 
+  const requestClose = () => {
+    if (JSON.stringify(formData) !== initialFormRef.current) setConfirmDiscard(true);
+    else onClose();
+  };
+
+  // 每次開啟都從 project 重新載入，確保「捨棄」後重開不殘留上次未儲存的值
   useEffect(() => {
-    if (project) {
-      setFormData({
+    if (project && isOpen) {
+      setConfirmDiscard(false);
+      const initial = {
         name: project.name || '',
         deadline: project.deadline || '',
         teacher_name: project.teacher_name || '',
@@ -27,9 +38,11 @@ export default function EditProjectModal({ isOpen, project, onClose, onProjectUp
         listening_types: project.listening_types || '',
         reading_types: project.reading_types || '',
         notes: project.notes || ''
-      });
+      };
+      setFormData(initial);
+      initialFormRef.current = JSON.stringify(initial);
     }
-  }, [project]);
+  }, [project, isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -44,11 +57,12 @@ export default function EditProjectModal({ isOpen, project, onClose, onProjectUp
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isVisible) onClose();
+      // 捨棄確認視窗開啟時由它自己處理 ESC
+      if (e.key === 'Escape' && isVisible && !confirmDiscard) requestClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isVisible, onClose]);
+  });
 
   if (!isRendered || !project) return null;
 
@@ -86,11 +100,12 @@ export default function EditProjectModal({ isOpen, project, onClose, onProjectUp
   const labelClassName = "block text-xs font-bold text-ink-muted mb-1.5";
 
   return (
-    <div 
+    <>
+    <div
       className={`fixed inset-0 bg-overlay/40 z-[60] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300 ease-out
         ${isVisible ? 'opacity-100' : 'opacity-0'}
-      `} 
-      onClick={onClose}
+      `}
+      onClick={requestClose}
     >
       <div
         role="dialog"
@@ -104,7 +119,7 @@ export default function EditProjectModal({ isOpen, project, onClose, onProjectUp
         
         <div className="px-5 py-4 border-b border-line flex justify-between items-center bg-card shrink-0">
           <h2 className="text-lg md:text-xl font-bold text-ink">編輯專案</h2>
-          <button onClick={onClose} aria-label="關閉" className="text-ink-muted hover:text-ink bg-paper p-1.5 rounded-md transition-colors shrink-0">
+          <button onClick={requestClose} aria-label="關閉" className="text-ink-muted hover:text-ink bg-paper p-1.5 rounded-md transition-colors shrink-0">
             <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
           </button>
         </div>
@@ -188,7 +203,7 @@ export default function EditProjectModal({ isOpen, project, onClose, onProjectUp
         </div>
 
         <div className="px-5 py-4 border-t border-line bg-paper-warm flex justify-end gap-3 shrink-0">
-          <button type="button" onClick={onClose} className="px-5 py-2 md:py-2.5 text-sm text-ink-soft bg-card border border-line hover:bg-paper rounded-md font-bold transition-colors">取消</button>
+          <button type="button" onClick={requestClose} className="px-5 py-2 md:py-2.5 text-sm text-ink-soft bg-card border border-line hover:bg-paper rounded-md font-bold transition-colors">取消</button>
           <button type="submit" form="edit-project-form" disabled={isSubmitting} className="px-5 py-2 md:py-2.5 text-sm bg-accent text-paper rounded-md font-bold hover:bg-accent-strong transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50">
             {isSubmitting ? '儲存中...' : '儲存變更'}
           </button>
@@ -196,5 +211,15 @@ export default function EditProjectModal({ isOpen, project, onClose, onProjectUp
 
       </div>
     </div>
+    <ConfirmDialog
+      open={confirmDiscard}
+      danger
+      title="捨棄未儲存的變更？"
+      description="編輯內容尚未儲存，關閉後將會消失。"
+      confirmLabel="捨棄"
+      onCancel={() => setConfirmDiscard(false)}
+      onConfirm={() => { setConfirmDiscard(false); onClose(); }}
+    />
+    </>
   );
 }

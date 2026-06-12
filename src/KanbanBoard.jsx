@@ -23,7 +23,14 @@ export default function KanbanBoard({ refreshKey, onCopyProject }) {
 
   async function fetchProjects() {
     try {
-      const { data, error } = await supabase.from('projects').select('*').order('deadline', { ascending: true });
+      // 封存規則：結案且截稿日已超過 30 天的專案不再載入看板，
+      // 避免結案欄無限累積（搜尋與業務分區仍查得到所有專案）
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 30);
+      const cutoffStr = cutoff.toISOString().split('T')[0];
+      const { data, error } = await supabase.from('projects').select('*')
+        .or(`status.neq.結案,deadline.gte.${cutoffStr}`)
+        .order('deadline', { ascending: true });
       if (error) throw error;
       setProjects(data);
     } catch (error) { console.error(error); } finally { setLoading(false); }
@@ -153,6 +160,10 @@ export default function KanbanBoard({ refreshKey, onCopyProject }) {
                   })
                 )}
               </div>
+
+              {columnName === '結案' && (
+                <div className="text-[11px] text-ink-faint text-center pt-2 shrink-0">僅顯示近期結案，較舊專案請用搜尋查找</div>
+              )}
             </div>
           );
         })}
