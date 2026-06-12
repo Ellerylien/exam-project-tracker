@@ -20,7 +20,7 @@
 | 前端框架 | React 19 + Vite |
 | 樣式 | Tailwind CSS v4（`src/index.css` 內以 `@theme` 定義全站設計 token） |
 | 後端／資料庫 | Supabase（`projects`、`team_users`、`comments` 三張資料表） |
-| 字體 | Noto Sans TC（Google Fonts），優先使用本機安裝的獅尾春腞 |
+| 字體 | [獅尾四季春](https://github.com/max32002/swei-spring)（自行 host 於 `public/fonts/`，SIL OFL 授權）；載入期間以 Noto Sans TC（Google Fonts）顯示 |
 | 頭像 | DiceBear Notionists |
 
 ## 開發

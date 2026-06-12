@@ -1,5 +1,22 @@
 @import "tailwindcss";
 
+/* 獅尾四季春（自行 host，SIL OFL 授權見 public/fonts/）
+   只 host Regular 與 Bold：500 對應 Regular、600 對應 Bold，
+   font-display: swap 載入期間先以 Noto Sans TC 顯示 */
+@font-face {
+  font-family: "Swei Spring";
+  src: url("/fonts/SweiSpringCJKtc-Regular.woff2") format("woff2");
+  font-weight: 400 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Swei Spring";
+  src: url("/fonts/SweiSpringCJKtc-Bold.woff2") format("woff2");
+  font-weight: 600 700;
+  font-display: swap;
+}
+
 @theme {
   /* ===== 字體 ===== */
   --font-sans: "Swei Spring", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
