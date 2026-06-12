@@ -1,0 +1,7 @@
+set PATH=C:\Users\ellerylien\Desktop\node;%PATH%
+cd C:\Users\ellerylien\exam-tracker
+
+
+git add .
+git commit -m "feat: 實作手機版 RWD 優化與業務看板 UI 更新"
+git push origin main

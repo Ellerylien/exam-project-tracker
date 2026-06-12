@@ -184,13 +184,26 @@ export default function ProjectDetailModal({ project, onClose, onStatusChange, o
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 md:p-4">
-        <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[95vh] md:max-h-[90vh] flex flex-col overflow-hidden">
+      <div 
+        className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 md:p-4"
+        onClick={onClose} // 🔥 新增：點擊半透明背景即可關閉
+      >
+        <div 
+          className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[95vh] md:max-h-[90vh] flex flex-col overflow-hidden"
+          onClick={(e) => e.stopPropagation()} // 🔥 新增：防止點擊卡片內部時觸發背景的關閉事件
+        >
           
-          {/* RWD：Header 的按鈕在手機板可以折行 */}
-          <div className="px-4 md:px-6 py-3 md:py-4 border-b border-gray-100 flex flex-wrap justify-between items-center gap-y-2 bg-gray-50">
-            <h2 className="text-lg md:text-xl font-bold text-gray-800 truncate pr-2 w-full sm:w-auto">{project.name}</h2>
-            <div className="flex items-center gap-1.5 md:gap-2 w-full sm:w-auto justify-end">
+          {/* RWD：重新排版 Header，將標題與關閉按鈕獨立為第一排，操作按鈕移至第二排 */}
+          <div className="px-4 md:px-6 py-3 md:py-4 border-b border-gray-100 flex flex-col gap-3 bg-gray-50 shrink-0">
+            <div className="flex justify-between items-start gap-2">
+              <h2 className="text-lg md:text-xl font-bold text-gray-800 break-words line-clamp-2 pr-2">{project.name}</h2>
+             {/* 關閉按鈕加上底色，並強制靠右 */}
+<button onClick={onClose} className="text-gray-400 hover:text-gray-700 bg-gray-200/50 hover:bg-gray-200 p-1.5 rounded-full transition-colors shrink-0">
+  <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+</button>
+            </div>
+
+            <div className="flex items-center gap-2 w-full">
               <button onClick={() => { onCopyProject(project); onClose(); }} className="text-xs md:text-sm bg-purple-50 text-purple-600 hover:bg-purple-100 px-3 md:px-4 py-1.5 rounded-lg font-medium transition-colors border border-purple-200">
                 複製
               </button>
@@ -200,16 +213,14 @@ export default function ProjectDetailModal({ project, onClose, onStatusChange, o
               <button onClick={handleDeleteProject} className="text-xs md:text-sm bg-red-50 text-red-600 hover:bg-red-100 px-3 md:px-4 py-1.5 rounded-lg font-medium transition-colors border border-red-200">
                 刪除
               </button>
-              <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><svg className="w-5 h-5 md:w-6 md:h-6 fill-none stroke-currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col gap-4 md:gap-6">
-            {/* RWD：手機版改為單欄，避免文字折行；桌機版維持雙欄 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
               <div><p className="text-xs text-gray-500 mb-0.5">當前狀態</p><p className="font-semibold text-blue-700 text-sm md:text-base">{project.status}</p></div>
               <div><p className="text-xs text-gray-500 mb-0.5">審稿截止日</p><p className="font-semibold text-gray-700 text-sm md:text-base">{project.deadline || '未設定'}</p></div>
-              <div><p className="text-xs text-gray-500 mb-0.5">考試範圍</p><p className="font-semibold text-gray-700 text-sm md:text-base">{project.scope || '未標註'}</p></div>
+              <div><p className="text-xs text-gray-500 mb-0.5">考試範圍</p><p className="font-semibold text-gray-700 text-sm md:text-base break-words">{project.scope || '未標註'}</p></div>
               <div><p className="text-xs text-gray-500 mb-0.5">負責業務</p><p className="font-semibold text-gray-700 text-sm md:text-base">{project.sales_rep || '未指派'}</p></div>
               <div><p className="text-xs text-gray-500 mb-0.5">負責業助</p><p className="font-semibold text-gray-700 text-sm md:text-base">{project.sales_assistant || '未指派'}</p></div>
               <div><p className="text-xs text-gray-500 mb-0.5">製作人員</p><p className="font-semibold text-gray-700 text-sm md:text-base">{project.production_staff || '未指派'}</p></div>
