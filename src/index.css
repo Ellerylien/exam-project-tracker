@@ -115,10 +115,16 @@
 }
 
 @layer base {
+  /* 全站字級基準微幅放大：text-* 工具類為 rem 基準，會等比例變大 */
+  html {
+    font-size: 106.25%; /* 16px → 17px */
+  }
+
   body {
     background-color: var(--color-paper);
     color: var(--color-ink);
     font-family: var(--font-sans);
+    letter-spacing: 0.015em; /* 全站字距微幅增加，避免字擠在一起 */
   }
 
   /* 鍵盤聚焦時的一致外框（滑鼠點擊不顯示） */
