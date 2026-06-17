@@ -121,9 +121,9 @@ async function pushToLine(to, text) {
       ],
     }),
   });
-  if (!r.ok) {
-    console.error('[notify] LINE 推播失敗：', r.status, await r.text());
-  }
+  // 暫時：不論成功失敗都印出 LINE 的回應，方便診斷
+  const respText = await r.text();
+  console.log('[notify] LINE 回應狀態：', r.status, '內容：', respText);
 }
 
 function truncate(s, n) {
