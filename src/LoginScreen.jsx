@@ -90,7 +90,7 @@ const AVATAR_MAP = {
         if (res.ok && json.ok) {
           setError('');
           setIsFadingOut(true); // 觸發離場動畫（成功時保留 verifying 直到淡出）
-          setTimeout(() => onLoginSuccess(json.user), 400); // 配合 CSS 動畫時間
+          setTimeout(() => onLoginSuccess(json.user), 200); // 配合 CSS 動畫時間
         } else if (res.status === 429) {
           setError('嘗試太多次，請稍後再試');
           setPin('');
@@ -115,7 +115,7 @@ const AVATAR_MAP = {
   if (loading) return <div className="min-h-screen bg-paper flex items-center justify-center text-ink-muted text-sm font-medium animate-pulse">正在準備您的工作空間...</div>;
 
   return (
-    <div className={`min-h-screen bg-paper flex flex-col items-center justify-center p-6 text-ink transition-opacity duration-400 ease-in-out ${isFadingOut ? 'opacity-0' : 'opacity-100'}`}>
+    <div className={`min-h-screen bg-paper flex flex-col items-center justify-center p-6 text-ink transition-opacity duration-200 ease-in-out ${isFadingOut ? 'opacity-0' : 'opacity-100'}`}>
         {!selectedUser ? (
           <div className="w-full max-w-3xl text-center animate-fade-slide-up">
             <h1 className="text-3xl font-bold mb-3 tracking-tight text-ink">誰正在使用系統？</h1>
