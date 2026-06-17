@@ -34,12 +34,21 @@ export default async function handler(req, res) {
       const replyTag = record.parent_id ? '（回覆）' : '';
       message = `💬 ${project.name}\n${record.author} 留言${replyTag}：\n${truncate(record.content, 200)}`;
     } else if (table === 'projects' && type === 'UPDATE') {
-      // 進度變更：只有「狀態真的改變」才通知（忽略單純的未讀旗標切換）
+      // 進度變更：只在狀態「真的改變」且變成下列指定階段時，才發通知
+      const STATUS_MESSAGES = {
+        '修改題目': '考題需要修改',
+        '製作錄音稿與學生卷': '老師閱卷 OK，請進行製作錄音稿與學生卷',
+      };
       if (!old_record || old_record.status === record.status) {
         return res.status(200).json({ ok: true, skip: 'status unchanged' });
       }
+      const note = STATUS_MESSAGES[record.status];
+      if (!note) {
+        // 其他階段（結案、出題中…）不發進度通知
+        return res.status(200).json({ ok: true, skip: 'status not notified' });
+      }
       project = record;
-      message = `📌 ${project.name}\n進度更新：${old_record.status} → ${record.status}`;
+      message = `📌 ${project.name}\n${note}`;
     } else {
       return res.status(200).json({ ok: true, skip: 'event ignored' });
     }
