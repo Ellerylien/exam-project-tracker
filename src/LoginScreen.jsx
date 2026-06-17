@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { supabase } from './supabaseClient';
 
 export default function LoginScreen({ onLoginSuccess }) {
   const [users, setUsers] = useState([]);
@@ -30,14 +29,20 @@ const AVATAR_MAP = {
 
   useEffect(() => {
     const fetchUsers = async () => {
-      const { data, error } = await supabase.from('team_users').select('*');
-      if (!error && data) {
+      try {
+        const res = await fetch('/api/users');
+        const json = await res.json();
+        const data = json.users || [];
         const hasGuest = data.some(u => u.name.toLowerCase() === 'guest');
-        let fullData = [...data]; if (!hasGuest) fullData.push({ id: 'guest', name: 'Guest', pin: '8888', role: 'Guest' });
+        const fullData = [...data];
+        if (!hasGuest) fullData.push({ id: 'guest', name: 'Guest', role: 'Guest' });
         const roleWeight = { sales: 1, assistant: 2, admin: 3, guest: 4 };
         setUsers(fullData.sort((a, b) => (roleWeight[a.role?.toLowerCase()] || 99) - (roleWeight[b.role?.toLowerCase()] || 99)));
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     fetchUsers();
   }, []);
@@ -63,19 +68,37 @@ const AVATAR_MAP = {
   }, [selectedUser, isFadingOut]);
 
   useEffect(() => {
-    if (pin.length === 4 && selectedUser) {
-      if (selectedUser.pin === pin) {
-        setError('');
-        setIsFadingOut(true); // 觸發離場動畫
-        setTimeout(() => {
-          onLoginSuccess(selectedUser);
-        }, 400); // 配合 CSS 動畫時間
-      } else { 
-        setError('PIN 碼錯誤'); 
-        setPin(''); 
-        if (navigator.vibrate) navigator.vibrate(200); 
+    if (pin.length !== 4 || !selectedUser) return;
+    let cancelled = false;
+    const verify = async () => {
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: selectedUser.name, pin }),
+        });
+        const json = await res.json();
+        if (cancelled) return;
+        if (res.ok && json.ok) {
+          setError('');
+          setIsFadingOut(true); // 觸發離場動畫
+          setTimeout(() => onLoginSuccess(json.user), 400); // 配合 CSS 動畫時間
+        } else if (res.status === 429) {
+          setError('嘗試太多次，請稍後再試');
+          setPin('');
+        } else {
+          setError('PIN 碼錯誤');
+          setPin('');
+          if (navigator.vibrate) navigator.vibrate(200);
+        }
+      } catch {
+        if (cancelled) return;
+        setError('連線失敗，請再試一次');
+        setPin('');
       }
-    }
+    };
+    verify();
+    return () => { cancelled = true; };
   }, [pin, selectedUser, onLoginSuccess]);
 
   if (loading) return <div className="min-h-screen bg-paper flex items-center justify-center text-ink-muted text-sm font-medium animate-pulse">正在準備您的工作空間...</div>;
