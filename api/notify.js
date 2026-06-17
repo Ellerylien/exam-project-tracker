@@ -59,9 +59,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, skip: 'no matching line group' });
     }
 
-    // 找出該案業務、業助的 LINE userId，準備 @ 他們本人
-    const people = await fetchMentionPeople([project.sales_rep, project.sales_assistant]);
-    await pushToLine(groupId, message, people);
+    await pushToLine(groupId, message);
     return res.status(200).json({ ok: true });
   } catch (err) {
     console.error('[notify] 發生錯誤：', err);
@@ -97,59 +95,18 @@ function sbHeaders() {
   };
 }
 
-// 依名字（業務、業助）取出有填 line_user_id 的人，回傳 [{name, userId}]
-async function fetchMentionPeople(names) {
-  const wanted = names.filter(Boolean);
-  if (wanted.length === 0) return [];
-  const url = `${SUPABASE_URL}/rest/v1/team_users?select=name,line_user_id`;
-  const r = await fetch(url, { headers: sbHeaders() });
-  const data = await r.json();
-  const byName = {};
-  if (Array.isArray(data)) {
-    for (const u of data) if (u.line_user_id) byName[u.name] = u.line_user_id;
-  }
-  const seen = new Set();
-  const out = [];
-  for (const n of wanted) {
-    if (byName[n] && !seen.has(n)) {
-      out.push({ name: n, userId: byName[n] });
-      seen.add(n);
-    }
-  }
-  return out;
-}
-
-async function pushToLine(to, text, people = []) {
-  // 做法 B：@ 該案業務與業助本人（用各自的 LINE userId 才會真的觸發 tag）
-  let fullText = text;
-  let mention;
-  if (people.length > 0) {
-    let prefix = '';
-    const mentionees = [];
-    people.forEach((p, i) => {
-      if (i > 0) prefix += ' ';
-      const token = `@${p.name}`;
-      mentionees.push({ index: prefix.length, length: token.length, type: 'user', userId: p.userId });
-      prefix += token;
-    });
-    fullText = `${prefix}\n${text}`;
-    mention = { mentionees };
-  }
-
-  const messageObj = { type: 'text', text: fullText };
-  if (mention) messageObj.mention = mention;
-
+async function pushToLine(to, text) {
   const r = await fetch('https://api.line.me/v2/bot/message/push', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${LINE_TOKEN}`,
     },
-    body: JSON.stringify({ to, messages: [messageObj] }),
+    body: JSON.stringify({ to, messages: [{ type: 'text', text }] }),
   });
-  // 暫時：不論成功失敗都印出 LINE 的回應，方便診斷
-  const respText = await r.text();
-  console.log('[notify] LINE 回應狀態：', r.status, '內容：', respText);
+  if (!r.ok) {
+    console.error('[notify] LINE 推播失敗：', r.status, await r.text());
+  }
 }
 
 function truncate(s, n) {
