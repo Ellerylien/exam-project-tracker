@@ -37,6 +37,9 @@ async function patchUser(id, patch) {
 }
 
 export default async function handler(req, res) {
+  // 預熱用：前端在使用者選好頭像時先打一下 GET，喚醒函式（含載入 bcrypt 模組），
+  // 等他輸入完 4 碼時函式已是熱的，省去冷啟動延遲。
+  if (req.method === 'GET') return res.status(200).json({ ok: true, warm: true });
   if (req.method !== 'POST') return res.status(405).json({ ok: false });
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -68,7 +71,10 @@ export default async function handler(req, res) {
     const ok = bcrypt.compareSync(pin, stored);
 
     if (ok) {
-      await patchUser(userRow.id, { failed_attempts: 0, locked_until: null });
+      // 只有先前有失敗紀錄/鎖定時才需要寫回清除，常態登入直接略過這次寫入
+      if ((userRow.failed_attempts ?? 0) > 0 || userRow.locked_until) {
+        await patchUser(userRow.id, { failed_attempts: 0, locked_until: null });
+      }
       return res.status(200).json({
         ok: true,
         user: { id: userRow.id, name: userRow.name, role: userRow.role },

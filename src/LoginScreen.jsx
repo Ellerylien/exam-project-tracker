@@ -9,6 +9,13 @@ export default function LoginScreen({ onLoginSuccess }) {
   
   // 🔥 新增：控制整個畫面淡出的狀態
   const [isFadingOut, setIsFadingOut] = useState(false);
+  // 驗證中：給即時視覺回饋，避免等待感像卡頓
+  const [verifying, setVerifying] = useState(false);
+
+  // 選好頭像就先預熱登入函式，蓋掉 serverless 冷啟動延遲
+  useEffect(() => {
+    if (selectedUser) fetch('/api/login').catch(() => {});
+  }, [selectedUser]);
 
 const AVATAR_MAP = { 
     'Deborah': 'Deborah_6', 'Lisa': 'Lisa_50', 'Jessica': 'Jessica_16', 
@@ -71,6 +78,7 @@ const AVATAR_MAP = {
     if (pin.length !== 4 || !selectedUser) return;
     let cancelled = false;
     const verify = async () => {
+      setVerifying(true);
       try {
         const res = await fetch('/api/login', {
           method: 'POST',
@@ -81,20 +89,23 @@ const AVATAR_MAP = {
         if (cancelled) return;
         if (res.ok && json.ok) {
           setError('');
-          setIsFadingOut(true); // 觸發離場動畫
+          setIsFadingOut(true); // 觸發離場動畫（成功時保留 verifying 直到淡出）
           setTimeout(() => onLoginSuccess(json.user), 400); // 配合 CSS 動畫時間
         } else if (res.status === 429) {
           setError('嘗試太多次，請稍後再試');
           setPin('');
+          setVerifying(false);
         } else {
           setError('PIN 碼錯誤');
           setPin('');
+          setVerifying(false);
           if (navigator.vibrate) navigator.vibrate(200);
         }
       } catch {
         if (cancelled) return;
         setError('連線失敗，請再試一次');
         setPin('');
+        setVerifying(false);
       }
     };
     verify();
@@ -129,7 +140,7 @@ const AVATAR_MAP = {
             </div>
             <h2 className="text-xl font-bold mb-8 text-ink">歡迎回來，{selectedUser.name}</h2>
             
-            <div className="flex gap-5 mb-12">
+            <div className={`flex gap-5 mb-12 ${verifying ? 'animate-pulse' : ''}`}>
               {[0, 1, 2, 3].map(i => (
                 <div key={i} className={`w-3 h-3 rounded-full transition-all duration-300 ${pin.length > i ? 'bg-ink scale-125 shadow-sm' : 'bg-line'}`} />
               ))}
