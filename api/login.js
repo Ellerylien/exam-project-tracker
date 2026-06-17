@@ -63,9 +63,9 @@ export default async function handler(req, res) {
       return res.status(429).json({ ok: false, error: 'locked' });
     }
 
-    // 驗證（相容舊明碼與新雜湊）
+    // 驗證：PIN 已雜湊，一律用 bcrypt 比對（雜湊格式不符會回 false，不會丟錯）
     const stored = String(userRow.pin ?? '');
-    const ok = stored.startsWith('$2') ? bcrypt.compareSync(pin, stored) : stored === pin;
+    const ok = bcrypt.compareSync(pin, stored);
 
     if (ok) {
       await patchUser(userRow.id, { failed_attempts: 0, locked_until: null });
