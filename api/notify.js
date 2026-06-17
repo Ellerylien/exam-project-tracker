@@ -96,8 +96,9 @@ function sbHeaders() {
 }
 
 async function pushToLine(to, text) {
-  // 做法 A：每則通知前面加「@所有人」並 tag 群組全體
-  const mentionLabel = '@所有人';
+  // 做法 A：每則通知前面加「@all」並 tag 群組全體
+  // 注意：LINE 的 mention-all 只認英文字串「@all」，中文「@所有人」會被當純文字。
+  const mentionLabel = '@all';
   const fullText = `${mentionLabel}\n${text}`;
   const r = await fetch('https://api.line.me/v2/bot/message/push', {
     method: 'POST',
