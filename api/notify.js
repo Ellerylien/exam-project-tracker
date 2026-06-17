@@ -96,13 +96,29 @@ function sbHeaders() {
 }
 
 async function pushToLine(to, text) {
+  // 做法 A：每則通知前面加「@所有人」並 tag 群組全體
+  const mentionLabel = '@所有人';
+  const fullText = `${mentionLabel}\n${text}`;
   const r = await fetch('https://api.line.me/v2/bot/message/push', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${LINE_TOKEN}`,
     },
-    body: JSON.stringify({ to, messages: [{ type: 'text', text }] }),
+    body: JSON.stringify({
+      to,
+      messages: [
+        {
+          type: 'text',
+          text: fullText,
+          mention: {
+            mentionees: [
+              { index: 0, length: mentionLabel.length, type: 'all' },
+            ],
+          },
+        },
+      ],
+    }),
   });
   if (!r.ok) {
     console.error('[notify] LINE 推播失敗：', r.status, await r.text());
