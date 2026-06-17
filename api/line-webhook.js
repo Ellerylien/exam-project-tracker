@@ -5,7 +5,24 @@
 // 我們要的是 source.groupId —— 把它填進 Supabase 的 line_groups 表。
 //
 // ⚠️ 這是「臨時診斷版」，還沒有做簽章驗證、也還不會發任何通知。
-//    等我們撈完所有群組 ID，下一步會把它改寫成正式的推播程式。
+//    用途：撈群組 ID，以及撈每位成員的「名字 = userId」對應（做法 B 用）。
+
+const LINE_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+
+// 用 groupId + userId 向 LINE 查這個人的顯示名稱
+async function getMemberName(groupId, userId) {
+  try {
+    const r = await fetch(
+      `https://api.line.me/v2/bot/group/${groupId}/member/${userId}`,
+      { headers: { Authorization: `Bearer ${LINE_TOKEN}` } }
+    );
+    if (!r.ok) return '(查不到名字)';
+    const data = await r.json();
+    return data.displayName ?? '(無名字)';
+  } catch {
+    return '(查詢失敗)';
+  }
+}
 
 export default async function handler(req, res) {
   // LINE 後台按「Verify」會送 POST；瀏覽器直接開網址是 GET。
@@ -35,6 +52,10 @@ export default async function handler(req, res) {
       console.log('★ groupId :', src.groupId ?? '(非群組)');
       console.log('  roomId  :', src.roomId ?? '(非多人聊天室)');
       console.log('  userId  :', src.userId ?? '(無)');
+      if (src.groupId && src.userId) {
+        const name = await getMemberName(src.groupId, src.userId);
+        console.log(`★ 對應關係 :「${name}」= ${src.userId}`);
+      }
       if (event.message?.text) {
         console.log('訊息內容 :', event.message.text);
       }
