@@ -312,6 +312,8 @@ const AVATAR_MAP = {
                   )}
                 </div>
               </div>
+              <div><span className="text-xs md:text-[13px] font-bold text-ink-muted block mb-2">聽力題型</span><p className="font-medium text-ink-soft whitespace-pre-wrap leading-relaxed bg-paper p-4 rounded-lg border border-line">{activeProject.listening_types || '無'}</p></div>
+              <div><span className="text-xs md:text-[13px] font-bold text-ink-muted block mb-2">閱讀題型</span><p className="font-medium text-ink-soft whitespace-pre-wrap leading-relaxed bg-paper p-4 rounded-lg border border-line">{activeProject.reading_types || '無'}</p></div>
               <div><span className="text-xs md:text-[13px] font-bold text-ink-muted block mb-2">注意事項</span><p className="font-medium text-ink-soft whitespace-pre-wrap leading-relaxed bg-paper p-4 rounded-lg border border-line">{activeProject.notes || '尚無備註'}</p></div>
             </div>
 
