@@ -272,7 +272,7 @@ const AVATAR_MAP = {
           <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-8 bg-card">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5 text-sm border-b border-line pb-8">
               <div className="flex flex-col gap-1">
-                <span className="text-xs md:text-[13px] font-bold text-ink-muted mb-0.5">當前狀態</span>
+                <span className="text-sm font-bold text-ink-muted mb-0.5">當前狀態</span>
                 <div className="relative w-fit">
                   <select
                     value={activeProject.status}
@@ -294,15 +294,15 @@ const AVATAR_MAP = {
                 { label: '製作人員', value: activeProject.production_staff }
               ].map(item => (
                 <div key={item.label} className="flex flex-col gap-1">
-                  <span className="text-xs md:text-[13px] font-bold text-ink-muted mb-0.5">{item.label}</span>
+                  <span className="text-sm font-bold text-ink-muted mb-0.5">{item.label}</span>
                   <span className={`text-sm md:text-base font-semibold ${item.highlight ? 'text-ink' : 'text-ink-soft'}`}>{item.value}</span>
                 </div>
               ))}
             </div>
 
             <div className="flex flex-col gap-6 text-sm">
-              <div><span className="text-xs md:text-[13px] font-bold text-ink-muted block mb-1">閱卷老師</span><span className="text-sm md:text-base font-semibold">{activeProject.teacher_name || '無'}</span></div>
-              <div><span className="text-xs md:text-[13px] font-bold text-ink-muted block mb-1">老師 Email</span>
+              <div><span className="text-sm font-bold text-ink-muted block mb-1">閱卷老師</span><span className="text-sm md:text-base font-semibold">{activeProject.teacher_name || '無'}</span></div>
+              <div><span className="text-sm font-bold text-ink-muted block mb-1">老師 Email</span>
                 <div role="button" tabIndex={activeProject.teacher_email ? 0 : -1} onClick={handleCopyEmail} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCopyEmail(); } }} className="flex items-center gap-2 cursor-pointer group w-fit">
                   <span className="text-sm md:text-base font-semibold text-ink-soft group-hover:underline">{activeProject.teacher_email || '無'}</span>
                   {activeProject.teacher_email && (
@@ -312,9 +312,9 @@ const AVATAR_MAP = {
                   )}
                 </div>
               </div>
-              <div><span className="text-xs md:text-[13px] font-bold text-ink-muted block mb-2">聽力題型</span><p className="font-medium text-ink-soft whitespace-pre-wrap leading-relaxed bg-paper p-4 rounded-lg border border-line">{activeProject.listening_types || '無'}</p></div>
-              <div><span className="text-xs md:text-[13px] font-bold text-ink-muted block mb-2">閱讀題型</span><p className="font-medium text-ink-soft whitespace-pre-wrap leading-relaxed bg-paper p-4 rounded-lg border border-line">{activeProject.reading_types || '無'}</p></div>
-              <div><span className="text-xs md:text-[13px] font-bold text-ink-muted block mb-2">注意事項</span><p className="font-medium text-ink-soft whitespace-pre-wrap leading-relaxed bg-paper p-4 rounded-lg border border-line">{activeProject.notes || '尚無備註'}</p></div>
+              <div><span className="text-sm font-bold text-ink-muted block mb-2">聽力題型</span><p className="font-medium text-ink-soft whitespace-pre-wrap leading-relaxed bg-paper p-4 rounded-lg border border-line">{activeProject.listening_types || '無'}</p></div>
+              <div><span className="text-sm font-bold text-ink-muted block mb-2">閱讀題型</span><p className="font-medium text-ink-soft whitespace-pre-wrap leading-relaxed bg-paper p-4 rounded-lg border border-line">{activeProject.reading_types || '無'}</p></div>
+              <div><span className="text-sm font-bold text-ink-muted block mb-2">注意事項</span><p className="font-medium text-ink-soft whitespace-pre-wrap leading-relaxed bg-paper p-4 rounded-lg border border-line">{activeProject.notes || '尚無備註'}</p></div>
             </div>
 
             {activeProject.status === '待老師回覆' && (
