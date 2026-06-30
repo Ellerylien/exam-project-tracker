@@ -67,6 +67,25 @@ export function computeDeadline(reviewDate, receiptDate) {
   return { deadline: '', source: 'none' };
 }
 
+// 申請表上的「負責業務／業助」中文名 → 系統下拉的英文名（公司對照表，要新增人員就加在這）。
+// 用「包含」比對，所以「吳明峻Mark Wu」「吳明峻」「Mark Wu」都會對到 Mark。
+const SALES_REP_MAP = [
+  { keys: ['許文瑜'], value: 'Deborah' },
+  { keys: ['吳明峻', 'Mark Wu'], value: 'Mark' },
+];
+const SALES_ASSISTANT_MAP = [
+  { keys: ['何佳真'], value: 'Lisa' },
+  { keys: ['李婕如', 'Jessica Li'], value: 'Jessica' },
+];
+function mapPerson(raw, table) {
+  if (!raw) return '';
+  const hay = raw.toLowerCase();
+  for (const { keys, value } of table) {
+    if (keys.some((k) => hay.includes(k.toLowerCase()))) return value;
+  }
+  return ''; // 對不到就留空，交給使用者手選
+}
+
 // 依固定欄位標籤抓值。回傳的日期是「原始片段」，由呼叫端再丟給 parseChineseDate。
 export function parseExamForm(text) {
   const pick = (re) => {
@@ -90,6 +109,10 @@ export function parseExamForm(text) {
   // E-mail：抓出乾淨的 email
   const teacher_email = pick(/E-?mail[：:]\s*([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/i);
 
+  // 負責業務／業助：抓申請表上的名字，再對應到系統下拉值
+  const sales_rep = mapPerson(pick(/負責業務[：:]\s*([^\n]*?)\s*(?:業助|$)/), SALES_REP_MAP);
+  const sales_assistant = mapPerson(pick(/業助[：:]\s*([^\n]+)/), SALES_ASSISTANT_MAP);
+
   // 試卷範圍：抓到「試卷內容/成品名稱」前（可跨行），收斂空白；如備註／空白 → 留白
   let scope = pick(/試卷範圍[：:]([\s\S]*?)(?:試卷內容|成品名稱|$)/);
   scope = scope.replace(/\s+/g, ' ').trim();
@@ -104,7 +127,7 @@ export function parseExamForm(text) {
     notes = notes.replace(/[ \t]+\n/g, '\n').replace(/\n{2,}/g, '\n').trim();
   }
 
-  return { name, review_date, school_receipt_date, teacher_name, teacher_email, scope, notes };
+  return { name, review_date, school_receipt_date, teacher_name, teacher_email, scope, notes, sales_rep, sales_assistant };
 }
 
 export default async function handler(req, res) {
@@ -145,6 +168,8 @@ export default async function handler(req, res) {
         teacher_email: fields.teacher_email || '',
         scope: fields.scope || '',
         notes: fields.notes || '',
+        sales_rep: fields.sales_rep || '',
+        sales_assistant: fields.sales_assistant || '',
       },
       meta: {
         deadline_source: source, // 'review' | 'receipt-10' | 'none'

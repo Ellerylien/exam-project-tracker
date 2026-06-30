@@ -32,6 +32,7 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
 
   // 上傳申請表自動帶入
   const [isParsing, setIsParsing] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [parseNote, setParseNote] = useState(null); // { type: 'ok'|'warn'|'error', text }
   const fileInputRef = useRef(null);
 
@@ -93,11 +94,13 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
     setFormData(prev => ({ ...prev, [field]: '照舊' }));
   };
 
-  // 上傳段考申請表 → 後端用 AI 擷取欄位 → 自動帶入表單（之後可手動調整）
-  const handleFilePicked = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = ''; // 清掉，讓使用者能重新選同一個檔
+  // 上傳段考申請表 → 後端讀檔＋規則擷取欄位 → 自動帶入表單（之後可手動調整）
+  const parseFile = async (file) => {
     if (!file) return;
+    if (!/\.(doc|docx)$/i.test(file.name)) {
+      setParseNote({ type: 'error', text: '請上傳 .doc 或 .docx 申請表檔案' });
+      return;
+    }
     setIsParsing(true);
     setParseNote(null);
     try {
@@ -119,6 +122,7 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
       const d = json.data;
       setFormData(prev => ({
         ...prev,
+        ...identityDefaults(currentUser),     // 規則 6：先用登入身份預選（含製作人員）
         ...(d.name ? { name: d.name } : {}),
         ...(d.deadline ? { deadline: d.deadline } : {}),
         ...(d.teacher_name ? { teacher_name: d.teacher_name } : {}),
@@ -127,7 +131,8 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
         notes: d.notes || '',
         listening_types: '照舊',              // 規則 8：題型預設照舊
         reading_types: '照舊',
-        ...identityDefaults(currentUser),     // 規則 6：依登入身份
+        ...(d.sales_rep ? { sales_rep: d.sales_rep } : {}),                 // 申請表上的負責業務優先
+        ...(d.sales_assistant ? { sales_assistant: d.sales_assistant } : {}),
       }));
 
       const src = json.meta?.deadline_source;
@@ -145,6 +150,19 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
     } finally {
       setIsParsing(false);
     }
+  };
+
+  const handleFilePicked = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // 清掉，讓使用者能重新選同一個檔
+    parseFile(file);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (isParsing) return;
+    parseFile(e.dataTransfer.files?.[0]);
   };
 
   const handleSubmit = async (e) => {
@@ -200,14 +218,22 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
           <form id="new-project-form" onSubmit={handleSubmit} className="flex flex-col gap-6 md:gap-7">
 
             {!isCopyMode && (
-              <div className="rounded-lg border border-dashed border-line-strong bg-paper/60 p-4 flex flex-col gap-3">
+              <div
+                onDragOver={(e) => { e.preventDefault(); if (!isParsing) setIsDragging(true); }}
+                onDragEnter={(e) => { e.preventDefault(); if (!isParsing) setIsDragging(true); }}
+                onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setIsDragging(false); }}
+                onDrop={handleDrop}
+                className={`rounded-lg border border-dashed p-4 flex flex-col gap-3 transition-colors ${
+                  isDragging ? 'border-accent bg-accent/10' : 'border-line-strong bg-paper/60'
+                }`}
+              >
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="min-w-0">
                     <div className="text-sm font-bold text-ink flex items-center gap-2">
                       <svg className="w-4 h-4 text-accent shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.9A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
-                      上傳段考申請表自動帶入
+                      傳段考申請表
                     </div>
-                    <p className="text-xs text-ink-muted mt-1">支援 .doc / .docx，系統會自動擷取成品名稱、審題日、老師、範圍、備註等欄位，帶入後仍可手動調整。</p>
+                    <p className="text-xs text-ink-muted mt-1">支援 .doc / .docx，可<span className="font-medium text-ink-soft">直接把檔案拖曳到這個框</span>，或按右側按鈕選擇。系統會自動擷取成品名稱、審題日、老師、業務／業助、範圍、備註等欄位，帶入後仍可手動調整。</p>
                   </div>
                   <button
                     type="button"
@@ -225,6 +251,9 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
                     onChange={handleFilePicked}
                   />
                 </div>
+                {isDragging && (
+                  <div className="text-xs text-accent font-bold text-center py-1 pointer-events-none">放開即可上傳…</div>
+                )}
                 {parseNote && (
                   <div className={`text-xs rounded-md px-3 py-2 border ${
                     parseNote.type === 'ok' ? 'bg-info-bg text-info border-info-line/40'

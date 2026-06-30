@@ -12,7 +12,7 @@ import { normalizeText, parseExamForm, computeDeadline } from '../api/parse-exam
 
 const DIR = process.argv[2] || 'C:/Users/ellerylien/Desktop/段考申請表 Sample';
 const extractor = new WordExtractor();
-const files = fs.readdirSync(DIR).filter((f) => /\.docx?$/i.test(f));
+const files = fs.readdirSync(DIR).filter((f) => /\.docx?$/i.test(f) && !f.startsWith('~$'));
 
 let total = 0;
 let filled = 0;
@@ -29,6 +29,8 @@ for (const f of files) {
   console.log(`  審稿截止日 : ${deadline || '（空）'}  [來源:${source}]  (審題日:${fields.review_date || '–'} / 收件日:${fields.school_receipt_date || '–'})`);
   console.log(`  閱卷老師   : ${data.teacher_name || '（空）'}`);
   console.log(`  Email      : ${data.teacher_email || '（空）'}`);
+  console.log(`  負責業務   : ${data.sales_rep || '（空）'}`);
+  console.log(`  負責業助   : ${data.sales_assistant || '（空）'}`);
   console.log(`  考試範圍   : ${fields.scope === '' ? '（留白）' : fields.scope}`);
   console.log(`  注意事項   : ${(data.notes || '（空）').replace(/\n/g, ' / ')}`);
   console.log('');
