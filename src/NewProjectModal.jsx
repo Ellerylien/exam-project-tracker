@@ -7,10 +7,33 @@ const EMPTY_FORM = {
   name: '', deadline: '', teacher_name: '', teacher_email: '', scope: '', sales_rep: '', sales_assistant: '', production_staff: '', listening_types: '', reading_types: '', notes: '', status: '排隊區'
 };
 
-export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initialData }) {
+// 下拉選單裡的人員，用來把登入身份對應到正確的欄位（規則 6）
+const SALES = ['Deborah', 'Mark', 'Richard'];
+const ASSISTANTS = ['Lisa', 'Jessica', 'Wanda'];
+const PRODUCTION = ['Ellery', 'Richard'];
+
+// 依登入者的身份預選負責業務／業助／製作人員。Richard 同時在業務與製作名單，
+// 以角色（role）為主：sales → 業務，其它（admin/製作）→ 製作人員。
+function identityDefaults(user) {
+  const out = {};
+  const name = (user?.name || '').trim();
+  const role = (user?.role || '').toLowerCase();
+  if (!name || role.includes('guest')) return out;
+  if (role.includes('sales') && SALES.includes(name)) out.sales_rep = name;
+  else if (role.includes('assistant') && ASSISTANTS.includes(name)) out.sales_assistant = name;
+  else if (PRODUCTION.includes(name)) out.production_staff = name;
+  return out;
+}
+
+export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initialData, currentUser }) {
   const toast = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCopyMode, setIsCopyMode] = useState(false);
+
+  // 上傳申請表自動帶入
+  const [isParsing, setIsParsing] = useState(false);
+  const [parseNote, setParseNote] = useState(null); // { type: 'ok'|'warn'|'error', text }
+  const fileInputRef = useRef(null);
 
   const [isRendered, setIsRendered] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -48,12 +71,16 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
   useEffect(() => {
     if (isOpen) {
       setConfirmDiscard(false);
-      const initial = initialData ? { ...initialData, deadline: '', status: '排隊區' } : EMPTY_FORM;
+      setParseNote(null);
+      // 全新專案：依登入身份預選負責業務／業助／製作人員（規則 6）
+      const initial = initialData
+        ? { ...initialData, deadline: '', status: '排隊區' }
+        : { ...EMPTY_FORM, ...identityDefaults(currentUser) };
       setIsCopyMode(!!initialData);
       setFormData(initial);
       initialFormRef.current = JSON.stringify(initial);
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, currentUser]);
 
   if (!isRendered) return null;
 
@@ -64,6 +91,60 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
 
   const handleSetSameAsBefore = (field) => {
     setFormData(prev => ({ ...prev, [field]: '照舊' }));
+  };
+
+  // 上傳段考申請表 → 後端用 AI 擷取欄位 → 自動帶入表單（之後可手動調整）
+  const handleFilePicked = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // 清掉，讓使用者能重新選同一個檔
+    if (!file) return;
+    setIsParsing(true);
+    setParseNote(null);
+    try {
+      const dataBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+        reader.onerror = () => reject(new Error('讀取檔案失敗'));
+        reader.readAsDataURL(file);
+      });
+
+      const res = await fetch('/api/parse-exam-form', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, dataBase64 }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || '解析失敗');
+
+      const d = json.data;
+      setFormData(prev => ({
+        ...prev,
+        ...(d.name ? { name: d.name } : {}),
+        ...(d.deadline ? { deadline: d.deadline } : {}),
+        ...(d.teacher_name ? { teacher_name: d.teacher_name } : {}),
+        ...(d.teacher_email ? { teacher_email: d.teacher_email } : {}),
+        scope: d.scope || '',                 // 規則 5：如備註／找不到 → 留白
+        notes: d.notes || '',
+        listening_types: '照舊',              // 規則 8：題型預設照舊
+        reading_types: '照舊',
+        ...identityDefaults(currentUser),     // 規則 6：依登入身份
+      }));
+
+      const src = json.meta?.deadline_source;
+      if (src === 'receipt-10') {
+        setParseNote({ type: 'warn', text: '已帶入。審稿截止日是由「學校收件日」往回推 10 天估算，請務必確認。' });
+      } else if (src === 'none') {
+        setParseNote({ type: 'warn', text: '已帶入，但未掃描到審題日／收件日，請手動填寫審稿截止日。' });
+      } else {
+        setParseNote({ type: 'ok', text: '已帶入，請核對各欄位後再儲存。' });
+      }
+      toast.success('申請表已帶入');
+    } catch (err) {
+      setParseNote({ type: 'error', text: err.message || '解析失敗' });
+      toast.error('解析失敗：' + (err.message || ''));
+    } finally {
+      setIsParsing(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -117,7 +198,44 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
 
         <div className="flex-1 overflow-y-auto p-5 md:p-8 bg-card">
           <form id="new-project-form" onSubmit={handleSubmit} className="flex flex-col gap-6 md:gap-7">
-            
+
+            {!isCopyMode && (
+              <div className="rounded-lg border border-dashed border-line-strong bg-paper/60 p-4 flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="min-w-0">
+                    <div className="text-sm font-bold text-ink flex items-center gap-2">
+                      <svg className="w-4 h-4 text-accent shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.9A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                      上傳段考申請表自動帶入
+                    </div>
+                    <p className="text-xs text-ink-muted mt-1">支援 .doc / .docx，系統會自動擷取成品名稱、審題日、老師、範圍、備註等欄位，帶入後仍可手動調整。</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isParsing}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="shrink-0 px-4 py-2 text-sm bg-accent text-paper rounded-md font-bold hover:bg-accent-strong transition-colors flex items-center gap-2 shadow-sm disabled:opacity-60"
+                  >
+                    {isParsing ? '解析中…' : '選擇檔案'}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    className="hidden"
+                    onChange={handleFilePicked}
+                  />
+                </div>
+                {parseNote && (
+                  <div className={`text-xs rounded-md px-3 py-2 border ${
+                    parseNote.type === 'ok' ? 'bg-info-bg text-info border-info-line/40'
+                    : parseNote.type === 'warn' ? 'bg-warning-bg text-warning border-warning-line/40'
+                    : 'bg-danger-bg text-danger border-danger-line/40'}`}>
+                    {parseNote.text}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
               <div>
                 <label className={labelClassName}>專案名稱 <span className="text-danger">*</span> <CopyWarning /></label>

@@ -202,7 +202,7 @@ const AVATAR_MAP = {
       </main>
       
       <ProjectDetailModal project={searchSelectedProject} onClose={() => setSearchSelectedProject(null)} onProjectDeleted={() => { setRefreshKey(k => k + 1); setSearchSelectedProject(null); }} onProjectUpdated={() => { setRefreshKey(k => k + 1); setSearchSelectedProject(null); }} onStatusChange={(id, status, hasUnread) => setRefreshKey(k => k + 1)} onCopyProject={handleCopyProject} />
-      <NewProjectModal isOpen={isNewModalOpen} onClose={() => setIsNewModalOpen(false)} onProjectAdded={() => setRefreshKey(prev => prev + 1)} initialData={copyData} />
+      <NewProjectModal isOpen={isNewModalOpen} onClose={() => setIsNewModalOpen(false)} onProjectAdded={() => setRefreshKey(prev => prev + 1)} initialData={copyData} currentUser={currentUser} />
     </div>
     </UnreadContext.Provider>
   );
