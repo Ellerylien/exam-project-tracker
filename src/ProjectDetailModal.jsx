@@ -270,6 +270,16 @@ const AVATAR_MAP = {
           </div>
 
           <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-8 bg-card">
+            {activeProject.status === '待老師回覆' && (
+              <div className="bg-warning-bg/60 border border-warning-line/40 p-5 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                <span className="text-sm font-bold text-warning">老師回覆處理</span>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <button onClick={() => updateProjectStatus('修改題目', true)} className="flex-1 sm:flex-none bg-card text-danger px-5 py-2 rounded-md text-sm font-bold border border-danger-line">需修改</button>
+                  <button onClick={() => { confetti(); updateProjectStatus('製作錄音稿與學生卷', true); }} className="flex-1 sm:flex-none bg-accent hover:bg-accent-strong text-paper px-5 py-2 rounded-md text-sm font-bold transition-colors">確認無誤</button>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5 text-sm border-b border-line pb-8">
               <div className="flex flex-col gap-1">
                 <span className="text-sm font-bold text-ink-muted mb-0.5">當前狀態</span>
@@ -316,16 +326,6 @@ const AVATAR_MAP = {
               <div><span className="text-sm font-bold text-ink-muted block mb-2">閱讀題型</span><p className="font-medium text-ink-soft whitespace-pre-wrap leading-relaxed bg-paper p-4 rounded-lg border border-line">{activeProject.reading_types || '無'}</p></div>
               <div><span className="text-sm font-bold text-ink-muted block mb-2">注意事項</span><p className="font-medium text-ink-soft whitespace-pre-wrap leading-relaxed bg-paper p-4 rounded-lg border border-line">{activeProject.notes || '尚無備註'}</p></div>
             </div>
-
-            {activeProject.status === '待老師回覆' && (
-              <div className="bg-warning-bg/60 border border-warning-line/40 p-5 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
-                <span className="text-sm font-bold text-warning">老師回覆處理</span>
-                <div className="flex gap-2 w-full sm:w-auto">
-                  <button onClick={() => updateProjectStatus('修改題目', true)} className="flex-1 sm:flex-none bg-card text-danger px-5 py-2 rounded-md text-sm font-bold border border-danger-line">需修改</button>
-                  <button onClick={() => { confetti(); updateProjectStatus('製作錄音稿與學生卷', true); }} className="flex-1 sm:flex-none bg-accent hover:bg-accent-strong text-paper px-5 py-2 rounded-md text-sm font-bold transition-colors">確認無誤</button>
-                </div>
-              </div>
-            )}
 
             <div className="flex flex-col gap-4">
               <h3 className="text-sm font-bold text-ink-muted border-b border-line pb-2">討論與記錄</h3>
