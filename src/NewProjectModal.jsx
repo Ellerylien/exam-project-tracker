@@ -184,7 +184,7 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
 
   const CopyWarning = () => isCopyMode ? <span className="text-[11px] text-danger bg-danger-bg border border-danger-line/60 px-1.5 py-0.5 rounded ml-2 animate-pulse font-normal tracking-wider">⚠️ 請記得修改</span> : null;
 
-  const inputClassName = "w-full px-3 py-2 md:py-2.5 bg-paper-warm border border-line rounded-md focus:border-ink-faint focus:bg-card focus:shadow-[0_0_0_1px_var(--color-line)] outline-none text-sm text-ink transition-all shadow-[0_1px_2px_rgba(0,0,0,0.01)]";
+  const inputClassName = "w-full px-3 py-2 md:py-2.5 bg-paper-warm border border-line rounded-md focus:border-ink-faint focus:bg-card focus:shadow-[0_0_0_1px_var(--color-line)] outline-none text-sm leading-6 text-ink transition-all shadow-[0_1px_2px_rgba(0,0,0,0.01)]";
   const labelClassName = "block text-xs font-bold text-ink-muted mb-1.5";
 
   return (
