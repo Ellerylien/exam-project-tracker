@@ -50,6 +50,15 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
     };
   }, [projects]);
 
+  // 已結案的專案沉底，其餘維持原本的死線由近至遠排序
+  const sortedProjects = useMemo(() => {
+    return [...projects].sort((a, b) => {
+      const aClosed = a.status === '結案' ? 1 : 0;
+      const bClosed = b.status === '結案' ? 1 : 0;
+      return aClosed - bClosed;
+    });
+  }, [projects]);
+
   if (loading && refreshKey === 0) return (
     <div className="flex-1 flex flex-col p-4 md:p-8 space-y-6 md:space-y-8 bg-paper min-h-screen">
       <div className="flex justify-between items-center border-b border-line/60 pb-5">
@@ -156,7 +165,7 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
               <div className="text-ink-faint text-xs">試試切換業務，或調整搜尋關鍵字</div>
             </div>
           ) : (
-            projects.map(project => {
+            sortedProjects.map(project => {
               const deadlineInfo = getDeadlineInfo(project.deadline, project.status);
               
               return (
