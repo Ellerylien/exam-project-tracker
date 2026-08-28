@@ -34,6 +34,8 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
   const [isParsing, setIsParsing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [parseNote, setParseNote] = useState(null); // { type: 'ok'|'warn'|'error', text }
+  const [importedApplication, setImportedApplication] = useState(null);
+  const [isGeneratingWord, setIsGeneratingWord] = useState(false);
   const fileInputRef = useRef(null);
 
   const [isRendered, setIsRendered] = useState(false);
@@ -73,6 +75,7 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
     if (isOpen) {
       setConfirmDiscard(false);
       setParseNote(null);
+      setImportedApplication(null);
       // 全新專案：依登入身份預選負責業務／業助／製作人員（規則 6）
       const initial = initialData
         ? { ...initialData, deadline: '', status: '排隊區' }
@@ -120,6 +123,7 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
       if (!res.ok || !json.ok) throw new Error(json.error || '解析失敗');
 
       const d = json.data;
+      setImportedApplication(d.application || null);
       setFormData(prev => ({
         ...prev,
         ...identityDefaults(currentUser),     // 規則 6：先用登入身份預選（含製作人員）
@@ -129,8 +133,8 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
         ...(d.teacher_email ? { teacher_email: d.teacher_email } : {}),
         scope: d.scope || '',                 // 規則 5：如備註／找不到 → 留白
         notes: d.notes || '',
-        listening_types: '照舊',              // 規則 8：題型預設照舊
-        reading_types: '照舊',
+        listening_types: d.listening_types || '照舊',
+        reading_types: d.reading_types || '照舊',
         ...(d.sales_rep ? { sales_rep: d.sales_rep } : {}),                 // 申請表上的負責業務優先
         ...(d.sales_assistant ? { sales_assistant: d.sales_assistant } : {}),
       }));
@@ -163,6 +167,62 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
     setIsDragging(false);
     if (isParsing) return;
     parseFile(e.dataTransfer.files?.[0]);
+  };
+
+  const handleGenerateWord = async () => {
+    if (!importedApplication) return;
+    setIsGeneratingWord(true);
+    try {
+      const application = {
+        ...importedApplication,
+        product_name: formData.name,
+        teacher: {
+          ...(importedApplication.teacher || {}),
+          name: formData.teacher_name,
+          email: formData.teacher_email,
+        },
+        range: {
+          ...(importedApplication.range || {}),
+          summary: formData.scope,
+        },
+        assessments: {
+          ...(importedApplication.assessments || {}),
+          listening: {
+            ...(importedApplication.assessments?.listening || {}),
+            summary: formData.listening_types,
+          },
+          reading: {
+            ...(importedApplication.assessments?.reading || {}),
+            summary: formData.reading_types,
+          },
+        },
+        notes: formData.notes,
+      };
+      const res = await fetch('/api/generate-exam-form', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ application }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || 'Word 產生失敗');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `${application.school}_${application.grade_exam}_${application.level}_申請表.docx`
+        .replace(/[\\/:*?"<>|]/g, '_');
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      toast.success('完整 Word 申請表已產生');
+    } catch (error) {
+      toast.error('Word 產生失敗：' + error.message);
+    } finally {
+      setIsGeneratingWord(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -261,6 +321,16 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
                     : 'bg-danger-bg text-danger border-danger-line/40'}`}>
                     {parseNote.text}
                   </div>
+                )}
+                {importedApplication && (
+                  <button
+                    type="button"
+                    onClick={handleGenerateWord}
+                    disabled={isGeneratingWord}
+                    className="self-start px-3 py-2 text-xs bg-card text-accent border border-line-strong rounded-md font-bold hover:bg-paper transition-colors disabled:opacity-60"
+                  >
+                    {isGeneratingWord ? 'Word 產生中…' : `下載完整 ${importedApplication.level} Word 申請表`}
+                  </button>
                 )}
               </div>
             )}

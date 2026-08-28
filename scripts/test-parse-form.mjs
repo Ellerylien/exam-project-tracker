@@ -20,7 +20,7 @@ const FIELDS = ['name', 'deadline', 'teacher_name', 'teacher_email', 'scope', 'n
 
 for (const f of files) {
   const text = normalizeText((await extractor.extract(path.join(DIR, f))).getBody());
-  const fields = parseExamForm(text);
+  const fields = parseExamForm(text, { filename: f });
   const { deadline, source } = computeDeadline(fields.review_date, fields.school_receipt_date);
   const data = { ...fields, deadline };
 
@@ -33,6 +33,10 @@ for (const f of files) {
   console.log(`  負責業助   : ${data.sales_assistant || '（空）'}`);
   console.log(`  考試範圍   : ${fields.scope === '' ? '（留白）' : fields.scope}`);
   console.log(`  注意事項   : ${(data.notes || '（空）').replace(/\n/g, ' / ')}`);
+  console.log(`  格式／層級 : ${fields.format || 'legacy'} / ${fields.level || '–'}`);
+  console.log(`  聽力題型   : ${fields.listening_types || '（空）'}`);
+  console.log(`  閱讀題型   : ${fields.reading_types || '（空）'}`);
+  if (fields.missing_fields?.length) console.log(`  待確認欄位 : ${fields.missing_fields.join(', ')}`);
   console.log('');
 
   // 統計：scope 留白視為「正確帶入」，其餘欄位非空才算帶到

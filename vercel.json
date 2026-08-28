@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/generate-exam-form.js": {
+      "includeFiles": "templates/**"
+    }
+  }
+}

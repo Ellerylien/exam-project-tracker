@@ -11,6 +11,7 @@
 
 /* global Buffer */
 import WordExtractor from 'word-extractor';
+import { isNewExamForm, parseNewExamForm } from './exam-form-v2.js';
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8MB，段考申請表遠小於此
 
@@ -87,7 +88,9 @@ function mapPerson(raw, table) {
 }
 
 // 依固定欄位標籤抓值。回傳的日期是「原始片段」，由呼叫端再丟給 parseChineseDate。
-export function parseExamForm(text) {
+export function parseExamForm(text, options = {}) {
+  if (isNewExamForm(text)) return parseNewExamForm(text, options);
+
   const pick = (re) => {
     const m = text.match(re);
     return m ? m[1].trim() : '';
@@ -154,7 +157,7 @@ export default async function handler(req, res) {
     if (!text) return sendJson(res, 422, { ok: false, error: '檔案內讀不到文字' });
 
     // 2) 規則擷取欄位
-    const fields = parseExamForm(text);
+    const fields = parseExamForm(text, { filename: body?.filename || '' });
 
     // 3) 算審稿截止日
     const { deadline, source } = computeDeadline(fields.review_date, fields.school_receipt_date);
@@ -168,10 +171,17 @@ export default async function handler(req, res) {
         teacher_email: fields.teacher_email || '',
         scope: fields.scope || '',
         notes: fields.notes || '',
+        listening_types: fields.listening_types || '',
+        reading_types: fields.reading_types || '',
         sales_rep: fields.sales_rep || '',
         sales_assistant: fields.sales_assistant || '',
+        level: fields.level || '',
+        application: fields.application || null,
       },
       meta: {
+        format: fields.format || 'legacy',
+        level: fields.level || null,
+        missing_fields: fields.missing_fields || [],
         deadline_source: source, // 'review' | 'receipt-10' | 'none'
         review_date: fields.review_date || null,
         school_receipt_date: fields.school_receipt_date || null,
