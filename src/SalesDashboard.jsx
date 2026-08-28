@@ -7,6 +7,47 @@ import Skeleton from './Skeleton';
 
 const SALES_REPS = ['Deborah', 'Mark', 'Richard'];
 
+// 「近期死線」看的是真正會出事的案子：3 天內截稿、而製作進度還卡在最前段
+const AT_RISK_STATUSES = ['排隊區', '出題中'];
+
+// 三張指標卡的單一事實來源：卡片數字與點擊後的清單共用同一個 match，
+// 兩者永遠不會對不上。tone 只放語意化 token，暗色模式自動跟著翻轉。
+const STAT_CARDS = [
+  {
+    key: 'urgent',
+    label: '近期死線 (3天內)',
+    caption: '3 天內截稿，且進度仍停在排隊區或出題中',
+    match: (p) => isUrgent(p.deadline, p.status) && AT_RISK_STATUSES.includes(p.status),
+    surface: 'bg-danger-bg border-danger-line/30',
+    text: 'text-danger',
+    ring: 'ring-danger/45',
+    glow: 'shadow-[0_10px_22px_-14px_var(--color-danger)]',
+    halo: 'border-danger',
+  },
+  {
+    key: 'waiting',
+    label: '待老師回覆 (需追蹤)',
+    caption: '目前進度為待老師回覆，等著我方追蹤',
+    match: (p) => p.status === '待老師回覆',
+    surface: 'bg-warning-bg border-warning-line/30',
+    text: 'text-warning',
+    ring: 'ring-warning/45',
+    glow: 'shadow-[0_10px_22px_-14px_var(--color-warning)]',
+    halo: 'border-warning',
+  },
+  {
+    key: 'unfinished',
+    label: '未結案總數',
+    caption: '所有尚未結案的案件',
+    match: (p) => p.status !== '結案',
+    surface: 'bg-info-bg border-info-line/30',
+    text: 'text-info',
+    ring: 'ring-info/45',
+    glow: 'shadow-[0_10px_22px_-14px_var(--color-info)]',
+    halo: 'border-info',
+  },
+];
+
 export default function SalesDashboard({ currentUser, searchTerm, refreshKey, onCopyProject }) {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,6 +55,11 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
   const [selectedProject, setSelectedProject] = useState(null);
   const [copyData, setCopyData] = useState(null);
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
+
+  // activeFilter：目前套用的指標卡（null = 預設無篩選）
+  // pulse：只記錄「最後被點到的那張卡 + 遞增序號」，用來重播點擊動畫（選取與取消都會播）
+  const [activeFilter, setActiveFilter] = useState(null);
+  const [pulse, setPulse] = useState({ key: null, n: 0 });
 
   const [selectedSales, setSelectedSales] = useState(
     currentUser?.role?.toLowerCase() === 'sales' ? currentUser.name : 'Deborah'
@@ -42,22 +88,27 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
     fetchProjectsBySales(selectedSales);
   }, [selectedSales, refreshKey, searchTerm]);
 
-  const stats = useMemo(() => {
-    return {
-      unfinished: projects.filter(p => p.status !== '結案').length,
-      waiting: projects.filter(p => p.status === '待老師回覆').length,
-      urgent: projects.filter(p => isUrgent(p.deadline, p.status)).length,
-    };
-  }, [projects]);
+  const counts = useMemo(() => (
+    Object.fromEntries(STAT_CARDS.map(card => [card.key, projects.filter(card.match).length]))
+  ), [projects]);
 
-  // 已結案的專案沉底，其餘維持原本的死線由近至遠排序
+  const activeCard = STAT_CARDS.find(card => card.key === activeFilter) ?? null;
+
+  // 先套用指標篩選，再讓已結案的專案沉底，其餘維持原本的死線由近至遠排序
   const sortedProjects = useMemo(() => {
-    return [...projects].sort((a, b) => {
+    const scoped = activeCard ? projects.filter(activeCard.match) : projects;
+    return [...scoped].sort((a, b) => {
       const aClosed = a.status === '結案' ? 1 : 0;
       const bClosed = b.status === '結案' ? 1 : 0;
       return aClosed - bClosed;
     });
-  }, [projects]);
+  }, [projects, activeCard]);
+
+  // 點同一張卡＝取消篩選回到預設；點另一張卡＝直接切換
+  const toggleFilter = (key) => {
+    setPulse(prev => ({ key, n: prev.n + 1 }));
+    setActiveFilter(prev => (prev === key ? null : key));
+  };
 
   if (loading && refreshKey === 0) return (
     <div className="flex-1 flex flex-col p-4 md:p-8 space-y-6 md:space-y-8 bg-paper min-h-screen">
@@ -122,50 +173,127 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
         </div>
       </div>
 
-      {/* 數據統計卡片：改為 Notion 經典呼叫區塊（Callout）配色，大圓角收斂為 md/xl，輕量無陰影 */}
+      {/* 數據統計卡片：Notion 呼叫區塊（Callout）配色，同時是清單的篩選開關。
+          點一下 = 只看這一類；再點一下 = 回到預設。選取的卡浮起 + 描邊 + 光暈擴散，
+          其餘兩張退到後面（降透明度與飽和度），讓「現在正在看什麼」一眼可辨。 */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* 近期死線：極淡粉紅底 */}
-        <div className="bg-danger-bg border border-danger-line/30 rounded-xl p-5 flex flex-col justify-between min-h-[110px]">
-          <div className="text-danger text-xs font-semibold tracking-wide">近期死線 (3天內)</div>
-          <div className="text-3xl font-bold text-danger mt-2 flex items-baseline gap-1">
-            {stats.urgent} <span className="text-xs font-normal opacity-80">件</span>
-          </div>
-        </div>
-        
-        {/* 待老師回覆：極淡鵝黃底 */}
-        <div className="bg-warning-bg border border-warning-line/30 rounded-xl p-5 flex flex-col justify-between min-h-[110px]">
-          <div className="text-warning text-xs font-semibold tracking-wide">待老師回覆 (需追蹤)</div>
-          <div className="text-3xl font-bold text-warning mt-2 flex items-baseline gap-1">
-            {stats.waiting} <span className="text-xs font-normal opacity-80">件</span>
-          </div>
-        </div>
+        {STAT_CARDS.map(card => {
+          const isActive = activeFilter === card.key;
+          const isDimmed = activeFilter !== null && !isActive;
+          const isPulsing = pulse.key === card.key;
 
-        {/* 未結案總數：極淡水藍底 */}
-        <div className="bg-info-bg border border-info-line/30 rounded-xl p-5 flex flex-col justify-between min-h-[110px]">
-          <div className="text-info text-xs font-semibold tracking-wide">未結案總數</div>
-          <div className="text-3xl font-bold text-info mt-2 flex items-baseline gap-1">
-            {stats.unfinished} <span className="text-xs font-normal opacity-80">件</span>
-          </div>
-        </div>
+          return (
+            <button
+              key={card.key}
+              type="button"
+              onClick={() => toggleFilter(card.key)}
+              aria-pressed={isActive}
+              title={card.caption}
+              aria-label={`${card.label}，${counts[card.key]} 件。${isActive ? '篩選中，再按一次顯示全部' : `按一下只顯示${card.label}的案件`}`}
+              className={`group relative text-left rounded-xl border p-5 flex flex-col justify-between min-h-[110px] cursor-pointer
+                transition-[transform,opacity,box-shadow,filter] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none
+                active:scale-[0.98] active:duration-100
+                ${card.surface}
+                ${isActive
+                  ? `-translate-y-1 ring-2 ring-offset-2 ring-offset-paper ${card.ring} ${card.glow}`
+                  : 'hover:-translate-y-0.5 hover:shadow-[0_8px_18px_-12px_rgba(0,0,0,0.35)]'}
+                ${isDimmed ? 'opacity-45 saturate-[0.55] scale-[0.98]' : ''}
+              `}
+            >
+              {/* 每次點擊（選取或取消）都由卡片邊緣向外擴散一次的光暈，是最明確的「我收到了」回饋 */}
+              {isPulsing && (
+                <span
+                  key={`halo-${pulse.n}`}
+                  aria-hidden="true"
+                  className={`pointer-events-none absolute -inset-px rounded-xl border-2 ${card.halo} animate-halo motion-reduce:hidden`}
+                />
+              )}
+
+              <div className="flex items-start justify-between gap-2">
+                <div className={`${card.text} text-xs font-semibold tracking-wide`}>{card.label}</div>
+                {/* 未選取時是淡淡的漏斗（暗示可篩選），選取後轉為勾選 */}
+                <span
+                  aria-hidden="true"
+                  className={`shrink-0 flex items-center justify-center w-5 h-5 rounded-full border ${card.text}
+                    transition-all duration-300 ease-out motion-reduce:transition-none
+                    ${isActive ? 'opacity-100 scale-100 border-current' : 'opacity-30 scale-90 border-transparent group-hover:opacity-60'}`}
+                >
+                  {isActive ? (
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  ) : (
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                  )}
+                </span>
+              </div>
+
+              <div className={`text-3xl font-bold ${card.text} mt-2 flex items-baseline gap-1`}>
+                {/* key 隨點擊次數改變 → 重新掛載以重播彈跳，選取與取消都會播一次 */}
+                <span
+                  key={isPulsing ? `pop-${pulse.n}` : 'idle'}
+                  className={`inline-block ${isPulsing ? 'animate-count-pop' : ''} motion-reduce:animate-none`}
+                >
+                  {counts[card.key]}
+                </span>
+                <span className="text-xs font-normal opacity-80">件</span>
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {/* 專案進度直列清單：改為平面無框感，靠細線優雅分割 */}
       <div className="bg-card rounded-xl border border-line/80 shadow-[0_1px_3px_rgba(0,0,0,0.02)] overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-paper bg-paper/50">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-ink-muted">專案進度清單</h2>
-        </div>
-        
-        <div className="flex flex-col">
-          {projects.length === 0 ? (
-            <div className="p-12 md:p-16 flex flex-col items-center gap-3 text-center">
-              <div className="w-12 h-12 rounded-full bg-paper border border-line flex items-center justify-center">
-                <svg className="w-5 h-5 text-ink-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>
-              </div>
-              <div className="text-ink-muted text-sm font-medium">目前尚無相關專案</div>
-              <div className="text-ink-faint text-xs">試試切換業務，或調整搜尋關鍵字</div>
+        <div className="px-5 py-3 border-b border-paper bg-paper/50 flex items-center justify-between gap-3 min-h-[52px]">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-ink-muted shrink-0">專案進度清單</h2>
+
+          {/* 篩選中的狀態列：說明條件、顯示筆數，並提供第二個「回到預設」的出口 */}
+          {activeCard && (
+            <div key={activeCard.key} className="flex items-center gap-2.5 min-w-0 animate-chip-enter motion-reduce:animate-none">
+              <span className="hidden md:inline text-[11px] text-ink-faint truncate">{activeCard.caption}</span>
+              <button
+                type="button"
+                onClick={() => toggleFilter(activeCard.key)}
+                className={`shrink-0 inline-flex items-center gap-1.5 h-6 pl-2.5 pr-1.5 rounded-full border text-[11px] font-semibold cursor-pointer
+                  ${activeCard.surface} ${activeCard.text} hover:opacity-75 transition-opacity duration-200 motion-reduce:transition-none`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
+                <span className="whitespace-nowrap">{activeCard.label} · {sortedProjects.length} 件</span>
+                <svg className="w-3.5 h-3.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+                <span className="sr-only">清除篩選</span>
+              </button>
             </div>
+          )}
+        </div>
+
+        {/* key 隨篩選改變 → 整份清單重新掛載，重播漸進進場，讓「換了一批資料」被看見 */}
+        <div key={activeFilter ?? 'all'} className="flex flex-col">
+          {sortedProjects.length === 0 ? (
+            activeCard ? (
+              <div className="p-12 md:p-16 flex flex-col items-center gap-3 text-center animate-row-enter motion-reduce:animate-none">
+                <div className="w-12 h-12 rounded-full bg-paper border border-line flex items-center justify-center">
+                  <svg className="w-5 h-5 text-ink-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                </div>
+                <div className="text-ink-muted text-sm font-medium">「{activeCard.label}」目前沒有符合的案件</div>
+                <div className="text-ink-faint text-xs">{activeCard.caption}</div>
+                <button
+                  type="button"
+                  onClick={() => toggleFilter(activeCard.key)}
+                  className="mt-1 px-3 py-1.5 rounded-md text-xs font-bold text-ink-soft bg-card border border-line hover:bg-paper hover:border-line-strong transition-colors cursor-pointer"
+                >
+                  清除篩選
+                </button>
+              </div>
+            ) : (
+              <div className="p-12 md:p-16 flex flex-col items-center gap-3 text-center">
+                <div className="w-12 h-12 rounded-full bg-paper border border-line flex items-center justify-center">
+                  <svg className="w-5 h-5 text-ink-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>
+                </div>
+                <div className="text-ink-muted text-sm font-medium">目前尚無相關專案</div>
+                <div className="text-ink-faint text-xs">試試切換業務，或調整搜尋關鍵字</div>
+              </div>
+            )
           ) : (
-            sortedProjects.map(project => {
+            sortedProjects.map((project, index) => {
               const deadlineInfo = getDeadlineInfo(project.deadline, project.status);
               
               return (
@@ -175,7 +303,8 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
                   tabIndex={0}
                   onClick={(e) => { e.currentTarget.blur(); setSelectedProject(project); }}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedProject(project); } }}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 md:px-5 md:py-4 border-b border-paper last:border-b-0 hover:bg-paper/60 cursor-pointer transition-colors gap-3 group relative"
+                  style={{ animationDelay: `${Math.min(index, 8) * 32}ms` }}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 md:px-5 md:py-4 border-b border-paper last:border-b-0 hover:bg-paper/60 cursor-pointer transition-colors gap-3 group relative animate-row-enter motion-reduce:animate-none"
                 >
                   {/* 極簡精緻未讀標示：淡雅的小藍點 */}
                   {project.has_unread && (

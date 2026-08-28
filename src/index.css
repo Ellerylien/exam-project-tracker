@@ -70,6 +70,52 @@
       transform: translateY(0);
     }
   }
+
+  /* 指標卡篩選的三段微互動：清單重新進場、篩選標籤浮現、數字彈跳、卡片光暈擴散。
+     一律走 transform / opacity，並以 ease-out 收尾；motion-reduce 時由元件端關閉。 */
+  --animate-row-enter: row-enter 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-chip-enter: chip-enter 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-count-pop: count-pop 0.34s cubic-bezier(0.34, 1.4, 0.5, 1);
+  --animate-halo: halo 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+
+  @keyframes row-enter {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes chip-enter {
+    from {
+      opacity: 0;
+      transform: translateY(-6px) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes count-pop {
+    0% { transform: scale(1); }
+    45% { transform: scale(1.16); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes halo {
+    from {
+      opacity: 0.55;
+      transform: scale(0.99);
+    }
+    to {
+      opacity: 0;
+      transform: scale(1.05);
+    }
+  }
 }
 
 /* ===== 暗色模式 =====
