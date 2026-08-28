@@ -57,6 +57,15 @@
   --color-info-bg: #EDF3F5;
   --color-info-line: #D3E3E8;
 
+  /* ===== 立體感（三階高度）=====
+     色塊平時就微微離開紙面，hover 抬起一點，被選取時浮到最高一階。
+     選取狀態靠高度而非描邊表示，所以三階之間的差距要拉得夠開才讀得出來。
+     刻意不用 --shadow-* 命名：那個 namespace 會被 Tailwind 把值內嵌進工具類，
+     .dark 就覆寫不到；用一般自訂屬性搭配 shadow-[var(...)] 才會跟著主題翻轉。 */
+  --elevation-rest: 0 1px 2px -1px rgba(74, 69, 66, 0.10), 0 2px 6px -3px rgba(74, 69, 66, 0.10);
+  --elevation-hover: 0 3px 6px -2px rgba(74, 69, 66, 0.12), 0 10px 18px -8px rgba(74, 69, 66, 0.16);
+  --elevation-lift: 0 6px 12px -4px rgba(74, 69, 66, 0.16), 0 20px 32px -14px rgba(74, 69, 66, 0.26);
+
   /* ===== 動畫 ===== */
   --animate-fade-slide-up: fade-slide-up 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 
@@ -71,49 +80,19 @@
     }
   }
 
-  /* 指標卡篩選的三段微互動：清單重新進場、篩選標籤浮現、數字彈跳、卡片光暈擴散。
-     一律走 transform / opacity，並以 ease-out 收尾；motion-reduce 時由元件端關閉。 */
-  --animate-row-enter: row-enter 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
-  --animate-chip-enter: chip-enter 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
-  --animate-count-pop: count-pop 0.34s cubic-bezier(0.34, 1.4, 0.5, 1);
-  --animate-halo: halo 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  /* 清單切換篩選時的漸進進場。走 transform / opacity 並以 ease-out 收尾；
+     motion-reduce 時由元件端關閉。卡片高度、篩選標籤等狀態改用 transition
+     （可雙向補間、不需要重新掛載），不在這裡定義。 */
+  --animate-row-enter: row-enter 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
 
   @keyframes row-enter {
     from {
       opacity: 0;
-      transform: translateY(10px);
+      transform: translateY(8px);
     }
     to {
       opacity: 1;
       transform: translateY(0);
-    }
-  }
-
-  @keyframes chip-enter {
-    from {
-      opacity: 0;
-      transform: translateY(-6px) scale(0.96);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-
-  @keyframes count-pop {
-    0% { transform: scale(1); }
-    45% { transform: scale(1.16); }
-    100% { transform: scale(1); }
-  }
-
-  @keyframes halo {
-    from {
-      opacity: 0.55;
-      transform: scale(0.99);
-    }
-    to {
-      opacity: 0;
-      transform: scale(1.05);
     }
   }
 }
@@ -158,6 +137,12 @@
   --color-success: #93C7AA;
   --color-success-bg: #20342A;
   --color-success-line: #355743;
+
+  /* 暗色底上「往下投影」幾乎看不見，高度要靠頂緣的受光線來表達：
+     越高的一階，頂緣那道亮線越亮、往下的暗部也越深。 */
+  --elevation-rest: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.5), 0 3px 8px -3px rgba(0, 0, 0, 0.55);
+  --elevation-hover: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 3px 6px -2px rgba(0, 0, 0, 0.6), 0 12px 20px -8px rgba(0, 0, 0, 0.7);
+  --elevation-lift: inset 0 1px 0 rgba(255, 255, 255, 0.13), 0 8px 14px -4px rgba(0, 0, 0, 0.7), 0 26px 38px -14px rgba(0, 0, 0, 0.85);
 }
 
 @layer base {

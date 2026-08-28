@@ -89,7 +89,7 @@ export default function CalendarView({ refreshKey, onCopyProject }) {
                   <div className={`text-xs font-bold mb-2 flex items-center justify-center w-6 h-6 rounded-md ${isToday ? 'bg-ink text-paper shadow-sm' : 'text-ink-muted'}`}>
                     {cell.date}
                   </div>
-                  <div className="flex flex-col gap-1.5 max-h-[100px] overflow-y-auto hide-scrollbar">
+                  <div className="flex flex-col gap-1.5 max-h-[100px] overflow-y-auto hide-scrollbar pt-0.5">
                     {cell.projects.map(project => (
                       <div
                         key={project.id}
@@ -97,10 +97,20 @@ export default function CalendarView({ refreshKey, onCopyProject }) {
                         tabIndex={0}
                         onClick={(e) => { e.currentTarget.blur(); setSelectedProject(project); }}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedProject(project); } }}
-                        className={`text-xs px-2 py-1.5 rounded-md border truncate cursor-pointer hover:border-line-strong transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.01)]
+                        className={`group relative text-xs px-2 py-1.5 rounded-md border cursor-pointer
+                          transition-[translate,background-color,border-color] duration-[200ms] ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none
+                          hover:-translate-y-0.5
                           ${project.status === '排隊區' ? 'bg-card text-ink-soft' : 'bg-info-bg text-info border-info-line/40'}`}
                       >
-                        {project.name}
+                        {/* hover 不改描邊，改成浮起。日曆卡片只有一行高，用最輕的
+                            --elevation-rest 才不會頭重腳輕（看板卡片用的是重一階的 hover）。
+                            truncate 移到內層，外層才不會用 overflow:hidden 把陰影切掉。 */}
+                        <span
+                          aria-hidden="true"
+                          className="pointer-events-none absolute inset-0 rounded-md shadow-[var(--elevation-rest)]
+                            opacity-0 group-hover:opacity-100 transition-opacity duration-[200ms] ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none"
+                        />
+                        <span className="relative block truncate">{project.name}</span>
                       </div>
                     ))}
                   </div>

@@ -133,10 +133,27 @@ export default function KanbanBoard({ refreshKey, onCopyProject }) {
                     const isAlert = ['overdue', 'today', 'soon'].includes(deadlineInfo.level);
                     return (
                     <div key={project.id} role="button" tabIndex={0} draggable="true" onClick={(e) => { e.currentTarget.blur(); setSelectedProject(project); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedProject(project); } }} onDragStart={(e) => handleDragStart(e, project.id)} onDragEnd={handleDragEnd}
-                      className={`relative p-4 rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.02)] border cursor-pointer hover:border-line-strong transition-all
+                      className={`group relative p-4 rounded-lg border cursor-pointer
+                        transition-[translate,background-color,border-color] duration-[240ms] ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none
+                        hover:-translate-y-0.5
                         ${project.has_unread ? 'bg-warning-bg border-warning-line/80' : 'bg-card border-line'}
                       `}
                     >
+                      {/* hover 不改描邊，改成把卡片抬起來：兩階陰影各自一層、
+                          只補間 opacity 互相交棒（box-shadow 自己過渡會每幀重繪）。
+                          與業務分區進度的指標色塊共用同一組 --elevation-* token。 */}
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 rounded-lg shadow-[var(--elevation-rest)]
+                          transition-opacity duration-[240ms] ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none
+                          opacity-100 group-hover:opacity-0"
+                      />
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 rounded-lg shadow-[var(--elevation-hover)]
+                          transition-opacity duration-[240ms] ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none
+                          opacity-0 group-hover:opacity-100"
+                      />
                       {project.has_unread && (
                         <span className="absolute top-3 right-3 flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-500"></span></span>
                       )}

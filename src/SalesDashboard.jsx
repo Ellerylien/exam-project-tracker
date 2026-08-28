@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import ProjectDetailModal from './ProjectDetailModal';
 import NewProjectModal from './NewProjectModal';
 import { supabase } from './supabaseClient';
@@ -11,7 +11,8 @@ const SALES_REPS = ['Deborah', 'Mark', 'Richard'];
 const AT_RISK_STATUSES = ['排隊區', '出題中'];
 
 // 三張指標卡的單一事實來源：卡片數字與點擊後的清單共用同一個 match，
-// 兩者永遠不會對不上。tone 只放語意化 token，暗色模式自動跟著翻轉。
+// 兩者永遠不會對不上。配色只放語意化 token，暗色模式自動跟著翻轉；
+// 選取與否由高度（陰影階層）表達，不靠描邊。
 const STAT_CARDS = [
   {
     key: 'urgent',
@@ -20,9 +21,6 @@ const STAT_CARDS = [
     match: (p) => isUrgent(p.deadline, p.status) && AT_RISK_STATUSES.includes(p.status),
     surface: 'bg-danger-bg border-danger-line/30',
     text: 'text-danger',
-    ring: 'ring-danger/45',
-    glow: 'shadow-[0_10px_22px_-14px_var(--color-danger)]',
-    halo: 'border-danger',
   },
   {
     key: 'waiting',
@@ -31,9 +29,6 @@ const STAT_CARDS = [
     match: (p) => p.status === '待老師回覆',
     surface: 'bg-warning-bg border-warning-line/30',
     text: 'text-warning',
-    ring: 'ring-warning/45',
-    glow: 'shadow-[0_10px_22px_-14px_var(--color-warning)]',
-    halo: 'border-warning',
   },
   {
     key: 'unfinished',
@@ -42,9 +37,6 @@ const STAT_CARDS = [
     match: (p) => p.status !== '結案',
     surface: 'bg-info-bg border-info-line/30',
     text: 'text-info',
-    ring: 'ring-info/45',
-    glow: 'shadow-[0_10px_22px_-14px_var(--color-info)]',
-    halo: 'border-info',
   },
 ];
 
@@ -57,9 +49,13 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
 
   // activeFilter：目前套用的指標卡（null = 預設無篩選）
-  // pulse：只記錄「最後被點到的那張卡 + 遞增序號」，用來重播點擊動畫（選取與取消都會播）
+  // lastCardKey：最後被點過的那張卡，取消篩選時讓標籤還能演完退場
   const [activeFilter, setActiveFilter] = useState(null);
-  const [pulse, setPulse] = useState({ key: null, n: 0 });
+  const [lastCardKey, setLastCardKey] = useState(null);
+
+  // 清單外層容器：切換篩選時要把高度從舊值補間到新值，否則長度會硬跳
+  const listRef = useRef(null);
+  const prevListHeightRef = useRef(null);
 
   const [selectedSales, setSelectedSales] = useState(
     currentUser?.role?.toLowerCase() === 'sales' ? currentUser.name : 'Deborah'
@@ -93,6 +89,8 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
   ), [projects]);
 
   const activeCard = STAT_CARDS.find(card => card.key === activeFilter) ?? null;
+  // 取消篩選時 activeCard 已成 null，但標籤還得留著把退場演完，所以看的是最後點過的那張
+  const chipCard = STAT_CARDS.find(card => card.key === lastCardKey) ?? null;
 
   // 先套用指標篩選，再讓已結案的專案沉底，其餘維持原本的死線由近至遠排序
   const sortedProjects = useMemo(() => {
@@ -106,9 +104,41 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
 
   // 點同一張卡＝取消篩選回到預設；點另一張卡＝直接切換
   const toggleFilter = (key) => {
-    setPulse(prev => ({ key, n: prev.n + 1 }));
+    // 在 React 重繪前先記下目前高度，供下面的 useLayoutEffect 當補間起點
+    prevListHeightRef.current = listRef.current?.offsetHeight ?? null;
+    setLastCardKey(key);
     setActiveFilter(prev => (prev === key ? null : key));
   };
+
+  // 清單高度補間：在瀏覽器繪製前把高度鎖回舊值，再過渡到新值，
+  // 讓「8 列變 2 列」是滑順收合而不是瞬間跳掉。
+  useLayoutEffect(() => {
+    const el = listRef.current;
+    const from = prevListHeightRef.current;
+    prevListHeightRef.current = null;
+
+    if (!el || from === null) return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+
+    const to = el.offsetHeight;
+    if (from === to) return;
+
+    el.style.overflow = 'hidden';
+    el.style.height = `${from}px`;
+    el.getBoundingClientRect(); // 強制 reflow，讓起始高度真的生效
+    // 容器高度屬於「間接位移」，用兩端都平緩的 ease-in-out，
+    // 不用卡片那種前重後輕的 ease-out，否則高度會在前 150ms 幾乎收完＝還是像在跳
+    el.style.transition = 'height 400ms cubic-bezier(0.4, 0, 0.2, 1)';
+    el.style.height = `${to}px`;
+
+    const reset = () => {
+      el.style.height = '';
+      el.style.overflow = '';
+      el.style.transition = '';
+    };
+    const timer = setTimeout(reset, 420);
+    return () => { clearTimeout(timer); reset(); };
+  }, [activeFilter]);
 
   if (loading && refreshKey === 0) return (
     <div className="flex-1 flex flex-col p-4 md:p-8 space-y-6 md:space-y-8 bg-paper min-h-screen">
@@ -180,7 +210,6 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
         {STAT_CARDS.map(card => {
           const isActive = activeFilter === card.key;
           const isDimmed = activeFilter !== null && !isActive;
-          const isPulsing = pulse.key === card.key;
 
           return (
             <button
@@ -191,49 +220,58 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
               title={card.caption}
               aria-label={`${card.label}，${counts[card.key]} 件。${isActive ? '篩選中，再按一次顯示全部' : `按一下只顯示${card.label}的案件`}`}
               className={`group relative text-left rounded-xl border p-5 flex flex-col justify-between min-h-[110px] cursor-pointer
-                transition-[transform,opacity,box-shadow,filter] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none
+                transition-[translate,scale,opacity] duration-[360ms] ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none
                 active:scale-[0.98] active:duration-100
                 ${card.surface}
-                ${isActive
-                  ? `-translate-y-1 ring-2 ring-offset-2 ring-offset-paper ${card.ring} ${card.glow}`
-                  : 'hover:-translate-y-0.5 hover:shadow-[0_8px_18px_-12px_rgba(0,0,0,0.35)]'}
-                ${isDimmed ? 'opacity-45 saturate-[0.55] scale-[0.98]' : ''}
+                ${isActive ? '-translate-y-1.5' : 'hover:-translate-y-0.5'}
+                ${isDimmed ? 'opacity-50 scale-[0.98]' : ''}
               `}
             >
-              {/* 每次點擊（選取或取消）都由卡片邊緣向外擴散一次的光暈，是最明確的「我收到了」回饋 */}
-              {isPulsing && (
-                <span
-                  key={`halo-${pulse.n}`}
-                  aria-hidden="true"
-                  className={`pointer-events-none absolute -inset-px rounded-xl border-2 ${card.halo} animate-halo motion-reduce:hidden`}
-                />
-              )}
+              {/* 三階高度各自獨立一層、只補間 opacity 互相交棒。
+                  box-shadow 每一幀都要重繪，讓它自己參與過渡就是掉幀主因；
+                  opacity 則是合成器直接處理，怎麼疊都不會卡。 */}
+              <span
+                aria-hidden="true"
+                className={`pointer-events-none absolute inset-0 rounded-xl shadow-[var(--elevation-rest)]
+                  transition-opacity duration-[360ms] ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none
+                  ${isActive ? 'opacity-0' : 'opacity-100'}`}
+              />
+              <span
+                aria-hidden="true"
+                className={`pointer-events-none absolute inset-0 rounded-xl shadow-[var(--elevation-hover)]
+                  transition-opacity duration-[360ms] ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none
+                  opacity-0 ${isActive ? '' : 'group-hover:opacity-100'}`}
+              />
+              <span
+                aria-hidden="true"
+                className={`pointer-events-none absolute inset-0 rounded-xl shadow-[var(--elevation-lift)]
+                  transition-opacity duration-[360ms] ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none
+                  ${isActive ? 'opacity-100' : 'opacity-0'}`}
+              />
 
               <div className="flex items-start justify-between gap-2">
                 <div className={`${card.text} text-xs font-semibold tracking-wide`}>{card.label}</div>
                 {/* 未選取時是淡淡的漏斗（暗示可篩選），選取後轉為勾選 */}
                 <span
                   aria-hidden="true"
-                  className={`shrink-0 flex items-center justify-center w-5 h-5 rounded-full border ${card.text}
-                    transition-all duration-300 ease-out motion-reduce:transition-none
+                  className={`relative shrink-0 w-5 h-5 rounded-full border ${card.text}
+                    transition-all duration-[360ms] ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none
                     ${isActive ? 'opacity-100 scale-100 border-current' : 'opacity-30 scale-90 border-transparent group-hover:opacity-60'}`}
                 >
-                  {isActive ? (
-                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  ) : (
+                  {/* 兩個圖示疊在一起互相淡入淡出，避免瞬間抽換造成的跳動 */}
+                  <span className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 ease-out motion-reduce:transition-none ${isActive ? 'opacity-0' : 'opacity-100'}`}>
                     <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-                  )}
+                  </span>
+                  <span className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 ease-out motion-reduce:transition-none ${isActive ? 'opacity-100' : 'opacity-0'}`}>
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  </span>
                 </span>
               </div>
 
+              {/* 數字本身不做動畫：它在切換篩選時根本沒變，彈一下只會變成雜訊。
+                  點擊的回饋交給卡片的下壓與浮起。 */}
               <div className={`text-3xl font-bold ${card.text} mt-2 flex items-baseline gap-1`}>
-                {/* key 隨點擊次數改變 → 重新掛載以重播彈跳，選取與取消都會播一次 */}
-                <span
-                  key={isPulsing ? `pop-${pulse.n}` : 'idle'}
-                  className={`inline-block ${isPulsing ? 'animate-count-pop' : ''} motion-reduce:animate-none`}
-                >
-                  {counts[card.key]}
-                </span>
+                <span>{counts[card.key]}</span>
                 <span className="text-xs font-normal opacity-80">件</span>
               </div>
             </button>
@@ -246,18 +284,24 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
         <div className="px-5 py-3 border-b border-paper bg-paper/50 flex items-center justify-between gap-3 min-h-[52px]">
           <h2 className="text-xs font-bold uppercase tracking-wider text-ink-muted shrink-0">專案進度清單</h2>
 
-          {/* 篩選中的狀態列：說明條件、顯示筆數，並提供第二個「回到預設」的出口 */}
-          {activeCard && (
-            <div key={activeCard.key} className="flex items-center gap-2.5 min-w-0 animate-chip-enter motion-reduce:animate-none">
-              <span className="hidden md:inline text-[11px] text-ink-faint truncate">{activeCard.caption}</span>
+          {/* 篩選中的狀態列：常駐在 DOM 裡，用透明度與位移進退場，
+              取消篩選時才有退場動畫，而不是整塊瞬間不見 */}
+          {chipCard && (
+            <div
+              aria-hidden={!activeCard}
+              className={`flex items-center gap-2.5 min-w-0 transform-gpu transition-[opacity,transform] duration-[320ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none
+                ${activeCard ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1.5 pointer-events-none'}`}
+            >
+              <span className="hidden md:inline text-[11px] text-ink-faint truncate">{chipCard.caption}</span>
               <button
                 type="button"
-                onClick={() => toggleFilter(activeCard.key)}
+                tabIndex={activeCard ? 0 : -1}
+                onClick={() => toggleFilter(chipCard.key)}
                 className={`shrink-0 inline-flex items-center gap-1.5 h-6 pl-2.5 pr-1.5 rounded-full border text-[11px] font-semibold cursor-pointer
-                  ${activeCard.surface} ${activeCard.text} hover:opacity-75 transition-opacity duration-200 motion-reduce:transition-none`}
+                  ${chipCard.surface} ${chipCard.text} hover:opacity-75 transition-opacity duration-200 motion-reduce:transition-none`}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
-                <span className="whitespace-nowrap">{activeCard.label} · {sortedProjects.length} 件</span>
+                <span className="whitespace-nowrap">{chipCard.label} · {sortedProjects.length} 件</span>
                 <svg className="w-3.5 h-3.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg>
                 <span className="sr-only">清除篩選</span>
               </button>
@@ -265,7 +309,9 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
           )}
         </div>
 
-        {/* key 隨篩選改變 → 整份清單重新掛載，重播漸進進場，讓「換了一批資料」被看見 */}
+        {/* 外層有 ref、不隨篩選重新掛載，負責把高度平滑補間；
+            內層 key 隨篩選改變 → 重新掛載以重播漸進進場 */}
+        <div ref={listRef}>
         <div key={activeFilter ?? 'all'} className="flex flex-col">
           {sortedProjects.length === 0 ? (
             activeCard ? (
@@ -303,7 +349,7 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
                   tabIndex={0}
                   onClick={(e) => { e.currentTarget.blur(); setSelectedProject(project); }}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedProject(project); } }}
-                  style={{ animationDelay: `${Math.min(index, 8) * 32}ms` }}
+                  style={{ animationDelay: `${Math.min(index, 6) * 26}ms` }}
                   className="flex flex-col sm:flex-row sm:items-center justify-between p-4 md:px-5 md:py-4 border-b border-paper last:border-b-0 hover:bg-paper/60 cursor-pointer transition-colors gap-3 group relative animate-row-enter motion-reduce:animate-none"
                 >
                   {/* 極簡精緻未讀標示：淡雅的小藍點 */}
@@ -352,6 +398,7 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
               );
             })
           )}
+        </div>
         </div>
       </div>
 
