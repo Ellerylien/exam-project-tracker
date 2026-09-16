@@ -2,7 +2,8 @@ import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import ProjectDetailModal from './ProjectDetailModal';
 import NewProjectModal from './NewProjectModal';
 import { supabase } from './supabaseClient';
-import { getDeadlineInfo, isUrgent } from './deadline';
+import { getHandoffDeadlineInfo, COUNTDOWN_STATUSES } from './deadline';
+import { STATUSES } from './constants';
 import Skeleton from './Skeleton';
 import ReminderList from './ReminderList';
 import { useToast } from './toast';
@@ -19,21 +20,14 @@ const matchesSearch = (term, ...values) => {
   return !needle || values.some(v => v?.toLowerCase().includes(needle));
 };
 
-// 「近期死線」看的是真正會出事的案子：3 天內截稿、而製作進度還卡在最前段
-const AT_RISK_STATUSES = ['排隊區', '出題中'];
+// 清單排序分三段：還沒交件的（依死線由近到遠，逾期最上面）→ 已交件的（依製作進度）→ 結案
+const sortTier = (status) => (status === '結案' ? 2 : COUNTDOWN_STATUSES.includes(status) ? 0 : 1);
 
-// 三張指標卡的單一事實來源：卡片數字與點擊後的清單共用同一個 match，
+// 指標卡的單一事實來源：卡片數字與點擊後的清單共用同一個 match，
 // 兩者永遠不會對不上。配色只放語意化 token，暗色模式自動跟著翻轉；
 // 選取與否由高度（陰影階層）表達，不靠描邊。
+// 死線不另設指標卡：清單本身就把最急的排在最上面。
 const STAT_CARDS = [
-  {
-    key: 'urgent',
-    label: '近期死線 (3天內)',
-    caption: '3 天內截稿，且進度仍停在排隊區或出題中',
-    match: (p) => isUrgent(p.deadline, p.status) && AT_RISK_STATUSES.includes(p.status),
-    surface: 'bg-danger-bg border-danger-line/30',
-    text: 'text-danger',
-  },
   {
     key: 'waiting',
     label: '待老師回覆 (需追蹤)',
@@ -52,7 +46,7 @@ const STAT_CARDS = [
   },
   {
     // 這張卡數的不是專案，而是「還沒建立的申請」：沒有 match，清單改由 ReminderList 顯示。
-    // 虛線框呼應「尚未存在」，與其他三張的實色狀態卡區隔
+    // 虛線框呼應「尚未存在」，與其他實色狀態卡區隔
     key: 'reminders',
     label: '待申請提醒',
     caption: '依已申請的案件推算，下一次還沒建立申請的考試',
@@ -222,13 +216,14 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
   // 取消篩選時 activeCard 已成 null，但標籤還得留著把退場演完，所以看的是最後點過的那張
   const chipCard = STAT_CARDS.find(card => card.key === lastCardKey) ?? null;
 
-  // 先套用指標篩選，再讓已結案的專案沉底，其餘維持原本的死線由近至遠排序
+  // 先套用指標篩選，再依 sortTier 分段排序（已交件的同一段內依製作進度，其餘依死線由近到遠）
   const sortedProjects = useMemo(() => {
     const scoped = activeCard?.match ? projects.filter(activeCard.match) : projects;
     return [...scoped].sort((a, b) => {
-      const aClosed = a.status === '結案' ? 1 : 0;
-      const bClosed = b.status === '結案' ? 1 : 0;
-      return aClosed - bClosed;
+      const tier = sortTier(a.status) - sortTier(b.status);
+      if (tier !== 0) return tier;
+      const stage = sortTier(a.status) === 1 ? STATUSES.indexOf(a.status) - STATUSES.indexOf(b.status) : 0;
+      return stage || (a.deadline || '9999').localeCompare(b.deadline || '9999');
     });
   }, [projects, activeCard]);
 
@@ -279,8 +274,8 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
         </div>
         <Skeleton className="h-9 w-44 rounded-md hidden sm:block" />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {Array.from({ length: 3 }).map((_, i) => (
           <Skeleton key={i} className="rounded-xl min-h-[110px]" />
         ))}
       </div>
@@ -288,7 +283,7 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
         <div className="px-5 py-3.5 border-b border-paper"><Skeleton className="h-3 w-24" /></div>
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="flex items-center gap-4 p-4 md:px-5 border-b border-paper last:border-b-0">
-            <Skeleton className="h-6 w-[78px]" />
+            <Skeleton className="h-6 w-[84px]" />
             <div className="flex-1 min-w-0">
               <Skeleton className="h-4 w-1/2 mb-2" />
               <Skeleton className="h-3 w-1/3" />
@@ -336,7 +331,7 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
       {/* 數據統計卡片：Notion 呼叫區塊（Callout）配色，同時是清單的篩選開關。
           點一下 = 只看這一類；再點一下 = 回到預設。選取的卡浮起 + 描邊 + 光暈擴散，
           其餘幾張退到後面（降透明度與飽和度），讓「現在正在看什麼」一眼可辨。 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {STAT_CARDS.map(card => {
           const isActive = activeFilter === card.key;
           const isDimmed = activeFilter !== null && !isActive;
@@ -483,7 +478,7 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
             )
           ) : (
             sortedProjects.map((project, index) => {
-              const deadlineInfo = getDeadlineInfo(project.deadline, project.status);
+              const deadlineInfo = getHandoffDeadlineInfo(project.deadline, project.status);
               
               return (
                 <div
@@ -505,7 +500,10 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
 
                   {/* 左側資訊區：死線狀態標籤 + 專案名稱 */}
                   <div className="flex items-start sm:items-center gap-3 md:gap-4 pl-1 sm:pl-0 min-w-0">
-                    <div className={`shrink-0 w-[78px] text-center font-semibold py-0.5 md:py-1 rounded border text-[11px] md:text-xs tracking-wide ${deadlineInfo.color}`}>
+                    <div
+                      title={project.deadline ? `審稿截止日 ${project.deadline}` : undefined}
+                      className={`shrink-0 w-[84px] whitespace-nowrap text-center font-semibold py-0.5 md:py-1 rounded border text-[11px] md:text-xs tracking-wide ${deadlineInfo.color}`}
+                    >
                       {deadlineInfo.text}
                     </div>
                     

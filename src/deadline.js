@@ -19,7 +19,13 @@ export function getDeadlineInfo(deadline, status) {
   return { text: `${diffDays} 天後`, level: 'normal', color: 'bg-info-bg text-info border-info-line/40' };
 }
 
-export function isUrgent(deadline, status) {
-  if (status === '結案' || !deadline) return false;
-  return getDiffDays(deadline) <= 3;
+// 只有排隊區、出題中還沒交件，需要看審稿倒數；其餘進度已交件，倒數不再有意義
+export const COUNTDOWN_STATUSES = ['排隊區', '出題中'];
+
+// 看板與業務分區共用：交件後、結案前改顯示「已交件」，不再倒數或亮逾期
+export function getHandoffDeadlineInfo(deadline, status) {
+  if (status !== '結案' && !COUNTDOWN_STATUSES.includes(status)) {
+    return { text: '已交件', level: 'delivered', color: 'bg-paper-soft text-ink-muted border-transparent' };
+  }
+  return getDeadlineInfo(deadline, status);
 }

@@ -6,6 +6,7 @@ import SalesDashboard from './SalesDashboard';
 import NewProjectModal from './NewProjectModal';
 import ProjectDetailModal from './ProjectDetailModal';
 import LoginScreen from './LoginScreen';
+import UnreadInbox from './UnreadInbox';
 import { supabase } from './supabaseClient';
 
 export default function App() {
@@ -20,7 +21,8 @@ export default function App() {
   const [copyData, setCopyData] = useState(null); 
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const [searchSelectedProject, setSearchSelectedProject] = useState(null);
+  // 從搜尋結果或未讀通知直接開啟的專案（不論目前在哪個視圖）
+  const [spotlightProject, setSpotlightProject] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
 
   // 主題：預設跟隨系統，手動切換後記住選擇（index.html 有防閃爍腳本套用初始值）
@@ -137,7 +139,7 @@ const AVATAR_MAP = {
               <div className="absolute top-full mt-2 w-full min-w-[240px] bg-card rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-line max-h-[350px] overflow-y-auto z-50">
                 <div className="p-3 text-xs text-ink-muted font-bold border-b border-paper">搜尋結果 ({searchResults.length})</div>
                 {searchResults.map(p => (
-                  <div key={p.id} role="button" tabIndex={0} onClick={(e) => { e.currentTarget.blur(); setSearchSelectedProject(p); setSearchTerm(''); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSearchSelectedProject(p); setSearchTerm(''); } }} className="p-3 border-b border-paper hover:bg-paper cursor-pointer">
+                  <div key={p.id} role="button" tabIndex={0} onClick={(e) => { e.currentTarget.blur(); setSpotlightProject(p); setSearchTerm(''); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSpotlightProject(p); setSearchTerm(''); } }} className="p-3 border-b border-paper hover:bg-paper cursor-pointer">
                     <div className="font-bold text-ink truncate text-sm">{p.name}</div>
                     <div className="flex justify-between items-center mt-1.5 text-xs text-ink-muted">
                       <span>{p.sales_rep}</span>
@@ -154,9 +156,6 @@ const AVATAR_MAP = {
           <div className="flex bg-paper p-1 rounded-lg min-w-0 overflow-x-auto hide-scrollbar">
             <button onClick={() => setCurrentView('kanban')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'kanban' ? 'bg-card text-ink shadow-[0_1px_3px_rgba(0,0,0,0.03)] font-bold border border-line' : 'text-ink-muted hover:text-ink-soft font-medium'}`}>
               全專案進度
-              {unreadCount > 0 && (
-                <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[11px] font-bold leading-none align-middle" title={`${unreadCount} 個專案有未讀回覆`}>{unreadCount}</span>
-              )}
             </button>
             <button onClick={() => setCurrentView('calendar')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'calendar' ? 'bg-card text-ink shadow-[0_1px_3px_rgba(0,0,0,0.03)] font-bold border border-line' : 'text-ink-muted hover:text-ink-soft font-medium'}`}>截稿日</button>
             <button onClick={() => setCurrentView('sales')} className={`whitespace-nowrap px-2.5 md:px-4 py-1.5 rounded-md text-xs md:text-sm transition-all ${currentView === 'sales' ? 'bg-card text-ink shadow-[0_1px_3px_rgba(0,0,0,0.03)] font-bold border border-line' : 'text-ink-muted hover:text-ink-soft font-medium'}`}>業務分區進度</button>
@@ -169,6 +168,8 @@ const AVATAR_MAP = {
                 <span className="hidden sm:inline">新增專案</span>
               </button>
             )}
+
+            <UnreadInbox count={unreadCount} onOpenProject={setSpotlightProject} />
 
             <button
               onClick={() => setTheme(t => (t === 'dark' ? 'light' : 'dark'))}
@@ -201,7 +202,7 @@ const AVATAR_MAP = {
         {currentView === 'sales' && <SalesDashboard currentUser={currentUser} searchTerm={searchTerm} refreshKey={refreshKey} onCopyProject={handleCopyProject} />}
       </main>
       
-      <ProjectDetailModal project={searchSelectedProject} onClose={() => setSearchSelectedProject(null)} onProjectDeleted={() => { setRefreshKey(k => k + 1); setSearchSelectedProject(null); }} onProjectUpdated={() => { setRefreshKey(k => k + 1); setSearchSelectedProject(null); }} onStatusChange={(id, status, hasUnread) => setRefreshKey(k => k + 1)} onCopyProject={handleCopyProject} />
+      <ProjectDetailModal project={spotlightProject} onClose={() => setSpotlightProject(null)} onProjectDeleted={() => { setRefreshKey(k => k + 1); setSpotlightProject(null); }} onProjectUpdated={() => { setRefreshKey(k => k + 1); setSpotlightProject(null); }} onStatusChange={(id, status, hasUnread) => setRefreshKey(k => k + 1)} onCopyProject={handleCopyProject} />
       <NewProjectModal isOpen={isNewModalOpen} onClose={() => setIsNewModalOpen(false)} onProjectAdded={() => setRefreshKey(prev => prev + 1)} initialData={copyData} currentUser={currentUser} />
     </div>
     </UnreadContext.Provider>

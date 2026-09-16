@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from './supabaseClient';
 import confetti from 'canvas-confetti';
 import ProjectDetailModal from './ProjectDetailModal';
-import { getDeadlineInfo } from './deadline';
+import { getHandoffDeadlineInfo } from './deadline';
 import Skeleton from './Skeleton';
 import { STATUSES } from './constants';
 import { useToast } from './toast';
@@ -114,13 +114,22 @@ export default function KanbanBoard({ refreshKey, onCopyProject }) {
       >
         {STATUSES.map((columnName) => {
           const columnProjects = projects.filter((p) => p.status === columnName);
+          const unreadInColumn = columnProjects.filter((p) => p.has_unread).length;
           const isDragTarget = dragOverColumn === columnName;
           return (
             <div key={columnName} className={`border rounded-xl p-3 md:p-4 min-w-[280px] md:min-w-[320px] flex flex-col h-fit max-h-[calc(100vh-140px)] md:max-h-[75vh] transition-colors duration-150 ${isDragTarget ? 'bg-line/60 border-line-strong' : 'bg-paper-soft/80 border-line'}`} onDragOver={(e) => { e.preventDefault(); if (dragOverColumn !== columnName) setDragOverColumn(columnName); }} onDrop={(e) => handleDrop(e, columnName)}>
               <div className="flex justify-between items-center mb-4 px-1 shrink-0">
                 {/* 🔥 調整：將欄位標題放大 */}
                 <h2 className="text-sm md:text-[15px] font-bold text-ink-muted tracking-wide">{columnName}</h2>
-                <span className="text-[11px] font-bold text-ink-muted px-2.5 py-0.5 border border-line bg-card/50 rounded-full">{columnProjects.length}</span>
+                <div className="flex items-center gap-1.5">
+                  {/* 欄位捲出畫面時也看得出哪一欄有未讀回覆 */}
+                  {unreadInColumn > 0 && (
+                    <span className="text-[11px] font-bold text-white bg-blue-500 px-2 py-0.5 rounded-full" title={`${unreadInColumn} 個專案有未讀回覆`}>
+                      {unreadInColumn} 未讀
+                    </span>
+                  )}
+                  <span className="text-[11px] font-bold text-ink-muted px-2.5 py-0.5 border border-line bg-card/50 rounded-full">{columnProjects.length}</span>
+                </div>
               </div>
 
               <div className="flex flex-col gap-3 overflow-y-auto pr-1 flex-1 min-h-[150px] md:min-h-[200px] pb-2">
@@ -128,8 +137,8 @@ export default function KanbanBoard({ refreshKey, onCopyProject }) {
                   <div className="border border-dashed border-line-strong rounded-lg p-6 text-center text-ink-faint text-sm font-medium">暫無專案</div>
                 ) : (
                   columnProjects.map((project) => {
-                    const deadlineInfo = getDeadlineInfo(project.deadline, project.status);
-                    // 逾期 / 今天 / 3 天內 才上色，其餘維持低調灰字，讓緊急的卡片自己跳出來
+                    const deadlineInfo = getHandoffDeadlineInfo(project.deadline, project.status);
+                    // 逾期 / 今天 / 3 天內 才上色，其餘（含已交件、已結案）維持低調灰字，讓緊急的卡片自己跳出來
                     const isAlert = ['overdue', 'today', 'soon'].includes(deadlineInfo.level);
                     return (
                     <div key={project.id} role="button" tabIndex={0} draggable="true" onClick={(e) => { e.currentTarget.blur(); setSelectedProject(project); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedProject(project); } }} onDragStart={(e) => handleDragStart(e, project.id)} onDragEnd={handleDragEnd}
