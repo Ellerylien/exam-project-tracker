@@ -9,6 +9,7 @@
 - **全專案進度（看板）** —— 七個階段欄位（排隊區 → 出題中 → 修改題目 → 待老師回覆 → 製作錄音稿與學生卷 → 待音檔送件 → 結案），卡片可拖曳換階段，結案時有彩帶慶祝；逾期與 3 天內截稿的卡片會自動亮起警示徽章
 - **截稿日（行事曆）** —— 以月曆檢視排隊區與出題中專案的審稿截止日
 - **業務分區進度** —— 依業務檢視名下案件，附近期死線、待老師回覆、未結案統計
+- **待申請提醒** —— 業務分區的第四張指標卡。依已申請的段考往後推算「下一次」該申請的考試（第一次 → 第二次 → 第三次 → 下學期第一次；不跨學年），名稱沿用該校原本的寫法，依上一次的審稿日排序。按「建立申請」會以上一次案件為範本開啟新增視窗（業助、製作人員、題型沿用），建好後提醒自動消失；閱卷老師只有在本學年歷次都是同一位時才直接帶入，否則留空並列出之前的老師供一鍵沿用，避免忘了改。推算不準時可略過這一次、設定學期到此為止、停止整個系列，或手動新增推算不出來的考試（如開學考、單字比賽）。規則在 `src/reminders.js`，可用 `node scripts/test-reminders.mjs` 驗證
 - **專案詳情** —— 完整欄位、一鍵複製老師 Email、討論串留言（支援回覆、編輯、刪除），有新留言時卡片會顯示未讀提示
 - **搜尋** —— 依專案名稱、老師、考試範圍即時搜尋
 - **複製專案** —— 以既有專案為範本快速建立新案
@@ -20,7 +21,7 @@
 |---|---|
 | 前端框架 | React 19 + Vite |
 | 樣式 | Tailwind CSS v4（`src/index.css` 內以 `@theme` 定義全站設計 token） |
-| 後端／資料庫 | Supabase（`projects`、`team_users`、`comments` 三張資料表） |
+| 後端／資料庫 | Supabase（`projects`、`team_users`、`comments`、`reminder_overrides` 四張資料表；建表 SQL 見 `supabase/`） |
 | Serverless API | `api/`（Vercel functions）：登入驗證、LINE 推播、申請表解析 |
 | 申請表解析 | `word-extractor` 讀 .doc／.docx ＋ 固定欄位規則 (regex) 擷取（純伺服器端、不需任何外部 API／金鑰、零成本）|
 | 字體 | [獅尾四季春](https://github.com/max32002/swei-spring)（自行 host 於 `public/fonts/`，SIL OFL 授權）；載入期間以 Noto Sans TC（Google Fonts）顯示 |
@@ -73,6 +74,8 @@ src/
 ├── KanbanBoard.jsx         # 看板（拖曳換階段）
 ├── CalendarView.jsx        # 截稿日月曆
 ├── SalesDashboard.jsx      # 業務分區統計與清單
+├── ReminderList.jsx        # 待申請提醒清單（略過、手動新增、復原）
+├── reminders.js            # 待申請提醒的推算規則（純邏輯）
 ├── ProjectDetailModal.jsx  # 專案詳情與討論串
 ├── NewProjectModal.jsx     # 新增／複製專案
 ├── EditProjectModal.jsx    # 編輯專案

@@ -4,8 +4,20 @@ import NewProjectModal from './NewProjectModal';
 import { supabase } from './supabaseClient';
 import { getDeadlineInfo, isUrgent } from './deadline';
 import Skeleton from './Skeleton';
+import ReminderList from './ReminderList';
+import { useToast } from './toast';
+import { computeReminders, currentSchoolYear, parseExamName, sameSlot } from './reminders';
 
 const SALES_REPS = ['Deborah', 'Mark', 'Richard'];
+
+// 從提醒建立申請時，沿用上一次案件的這些欄位；範圍與審稿日每次都不同，留白重填。
+// 閱卷老師另外判斷：確定每次都同一位才帶入（見 reminders.js 的 teacherHistory）
+const CARRY_OVER_FIELDS = ['sales_assistant', 'production_staff', 'listening_types', 'reading_types', 'notes'];
+
+const matchesSearch = (term, ...values) => {
+  const needle = term.trim().toLowerCase();
+  return !needle || values.some(v => v?.toLowerCase().includes(needle));
+};
 
 // 「近期死線」看的是真正會出事的案子：3 天內截稿、而製作進度還卡在最前段
 const AT_RISK_STATUSES = ['排隊區', '出題中'];
@@ -38,15 +50,32 @@ const STAT_CARDS = [
     surface: 'bg-info-bg border-info-line/30',
     text: 'text-info',
   },
+  {
+    // 這張卡數的不是專案，而是「還沒建立的申請」：沒有 match，清單改由 ReminderList 顯示。
+    // 虛線框呼應「尚未存在」，與其他三張的實色狀態卡區隔
+    key: 'reminders',
+    label: '待申請提醒',
+    caption: '依已申請的案件推算，下一次還沒建立申請的考試',
+    surface: 'bg-card border-dashed border-line-strong',
+    text: 'text-ink-soft',
+  },
 ];
 
 export default function SalesDashboard({ currentUser, searchTerm, refreshKey, onCopyProject }) {
-  const [projects, setProjects] = useState([]);
+  const toast = useToast();
+  const canEdit = currentUser?.role?.toLowerCase() !== 'guest';
+
+  // 抓全部業務的專案：待申請提醒要看完整清單才判斷得出「還沒申請」，
+  // 系列換業務負責時也才歸得對人。業務篩選與搜尋都在前端做。
+  const [allProjects, setAllProjects] = useState([]);
+  const [overrides, setOverrides] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
-  const [copyData, setCopyData] = useState(null);
-  const [isNewModalOpen, setIsNewModalOpen] = useState(false);
+
+  // 從提醒建立申請：createFrom 在關閉動畫期間保留，避免表單內容瞬間清空
+  const [createFrom, setCreateFrom] = useState(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   // activeFilter：目前套用的指標卡（null = 預設無篩選）
   // lastCardKey：最後被點過的那張卡，取消篩選時讓標籤還能演完退場
@@ -61,18 +90,19 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
     currentUser?.role?.toLowerCase() === 'sales' ? currentUser.name : 'Deborah'
   );
 
-  const fetchProjectsBySales = async (salesRep) => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('sales_rep', salesRep)
-        .or(`name.ilike.%${searchTerm}%,teacher_name.ilike.%${searchTerm}%,scope.ilike.%${searchTerm}%`)
-        .order('deadline', { ascending: true }); 
+      const [projectResult, overrideResult] = await Promise.all([
+        supabase.from('projects').select('*').order('deadline', { ascending: true }),
+        supabase.from('reminder_overrides').select('*').order('created_at', { ascending: true }),
+      ]);
 
-      if (error) throw error;
-      setProjects(data || []);
+      if (projectResult.error) throw projectResult.error;
+      setAllProjects(projectResult.data || []);
+      // 提醒只是輔助資訊：例外記錄讀不到時照樣顯示推算結果，不擋住整個儀表板
+      if (overrideResult.error) console.warn('讀取提醒例外記錄失敗', overrideResult.error);
+      setOverrides(overrideResult.data || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -81,12 +111,112 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
   };
 
   useEffect(() => {
-    fetchProjectsBySales(selectedSales);
-  }, [selectedSales, refreshKey, searchTerm]);
+    fetchData();
+  }, [refreshKey]);
+
+  const projects = useMemo(() => (
+    allProjects.filter(p => p.sales_rep === selectedSales && matchesSearch(searchTerm, p.name, p.teacher_name, p.scope))
+  ), [allProjects, selectedSales, searchTerm]);
+
+  const reminders = useMemo(() => (
+    computeReminders(allProjects, overrides)
+      .filter(r => r.salesRep === selectedSales && matchesSearch(searchTerm, r.name, r.basedOn?.teacher_name))
+  ), [allProjects, overrides, selectedSales, searchTerm]);
+
+  // 「已略過」清單：只列這位業務、本學年仍有效的略過；停止提醒的系列不分學年都列出
+  const skippedOverrides = useMemo(() => {
+    const thisYear = currentSchoolYear();
+    return overrides.filter(o =>
+      o.sales_rep === selectedSales &&
+      (o.kind === 'stop_series' || (['skip', 'end_term'].includes(o.kind) && o.school_year >= thisYear)));
+  }, [overrides, selectedSales]);
 
   const counts = useMemo(() => (
-    Object.fromEntries(STAT_CARDS.map(card => [card.key, projects.filter(card.match).length]))
-  ), [projects]);
+    Object.fromEntries(STAT_CARDS.map(card => [
+      card.key,
+      card.match ? projects.filter(card.match).length : reminders.length,
+    ]))
+  ), [projects, reminders]);
+
+  const saveOverride = async (row, successText) => {
+    const { data, error } = await supabase
+      .from('reminder_overrides')
+      .insert([{ ...row, created_by: currentUser?.name ?? null }])
+      .select()
+      .single();
+    if (error) { toast.error('儲存失敗：' + error.message); return false; }
+    setOverrides(prev => [...prev, data]);
+    if (successText) toast.success(successText);
+    return true;
+  };
+
+  const removeOverride = async (id, successText) => {
+    const { error } = await supabase.from('reminder_overrides').delete().eq('id', id);
+    if (error) { toast.error('操作失敗：' + error.message); return false; }
+    setOverrides(prev => prev.filter(o => o.id !== id));
+    if (successText) toast.success(successText);
+    return true;
+  };
+
+  const slotColumns = (slot) => ({
+    series_key: slot.seriesKey, school_year: slot.schoolYear, term: slot.term, exam_no: slot.examNo,
+  });
+
+  const handleSkip = (reminder, kind) => saveOverride(
+    { kind, ...slotColumns(reminder.slot), name: reminder.name, sales_rep: reminder.salesRep },
+    kind === 'stop_series' ? '此系列已停止提醒，可在「已略過」復原' : '已略過，可在「已略過」復原',
+  );
+
+  const handleAddManual = (name) => saveOverride(
+    { kind: 'manual', name, sales_rep: selectedSales },
+    '已新增提醒',
+  );
+
+  const openCreateFromReminder = (reminder) => {
+    setCreateFrom(reminder);
+    setIsCreateOpen(true);
+  };
+
+  const createPrefill = useMemo(() => {
+    if (!createFrom) return null;
+    const base = createFrom.basedOn;
+    if (!base) {
+      return {
+        data: { name: createFrom.name, sales_rep: createFrom.salesRep },
+        note: '已帶入名稱與負責業務，其餘欄位請填寫，或上傳申請表自動帶入。',
+        teacherOptions: [],
+      };
+    }
+
+    const carried = Object.fromEntries(CARRY_OVER_FIELDS.map(field => [field, base[field]]));
+    const fixedTeacher = createFrom.teacherFixed ? createFrom.teachers[0] : null;
+    return {
+      data: {
+        ...carried,
+        ...(fixedTeacher && { teacher_name: fixedTeacher.teacher_name, teacher_email: fixedTeacher.teacher_email }),
+        name: createFrom.name,
+        sales_rep: createFrom.salesRep,
+      },
+      note: fixedTeacher
+        ? `已依「${base.name}」帶入業助、製作人員與題型。本學年這個系列每次都是 ${fixedTeacher.teacher_name.replace(/\s*老師$/, '')} 老師，已一併帶入。考試範圍與審稿截止日請重新填寫，也可以直接上傳新的申請表覆蓋。`
+        : `已依「${base.name}」帶入業助、製作人員與題型。閱卷老師可能每次不同，請填寫或點選下方之前的老師；考試範圍與審稿截止日也請重新填寫，或直接上傳新的申請表。`,
+      teacherOptions: createFrom.teachers,
+    };
+  }, [createFrom]);
+
+  // 建好申請後提醒通常會自動消失（名稱推得回同一格）。
+  // 若業務改了名稱導致對不上，補一筆「已申請」，免得提醒還掛著；手動提醒則直接刪掉。
+  const handleCreatedFromReminder = async (created) => {
+    if (!created) return;
+    setAllProjects(prev => [...prev, created]);
+    const reminder = createFrom;
+    if (!reminder) return;
+    if (reminder.type === 'manual') {
+      await removeOverride(reminder.override.id);
+    } else if (!sameSlot(parseExamName(created.name), reminder.slot)) {
+      await saveOverride({ kind: 'applied', ...slotColumns(reminder.slot), name: created.name, sales_rep: created.sales_rep });
+    }
+  };
 
   const activeCard = STAT_CARDS.find(card => card.key === activeFilter) ?? null;
   // 取消篩選時 activeCard 已成 null，但標籤還得留著把退場演完，所以看的是最後點過的那張
@@ -94,7 +224,7 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
 
   // 先套用指標篩選，再讓已結案的專案沉底，其餘維持原本的死線由近至遠排序
   const sortedProjects = useMemo(() => {
-    const scoped = activeCard ? projects.filter(activeCard.match) : projects;
+    const scoped = activeCard?.match ? projects.filter(activeCard.match) : projects;
     return [...scoped].sort((a, b) => {
       const aClosed = a.status === '結案' ? 1 : 0;
       const bClosed = b.status === '結案' ? 1 : 0;
@@ -149,8 +279,8 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
         </div>
         <Skeleton className="h-9 w-44 rounded-md hidden sm:block" />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {Array.from({ length: 3 }).map((_, i) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="rounded-xl min-h-[110px]" />
         ))}
       </div>
@@ -205,8 +335,8 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
 
       {/* 數據統計卡片：Notion 呼叫區塊（Callout）配色，同時是清單的篩選開關。
           點一下 = 只看這一類；再點一下 = 回到預設。選取的卡浮起 + 描邊 + 光暈擴散，
-          其餘兩張退到後面（降透明度與飽和度），讓「現在正在看什麼」一眼可辨。 */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          其餘幾張退到後面（降透明度與飽和度），讓「現在正在看什麼」一眼可辨。 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {STAT_CARDS.map(card => {
           const isActive = activeFilter === card.key;
           const isDimmed = activeFilter !== null && !isActive;
@@ -282,7 +412,9 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
       {/* 專案進度直列清單：改為平面無框感，靠細線優雅分割 */}
       <div className="bg-card rounded-xl border border-line/80 shadow-[0_1px_3px_rgba(0,0,0,0.02)] overflow-hidden">
         <div className="px-5 py-3 border-b border-paper bg-paper/50 flex items-center justify-between gap-3 min-h-[52px]">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-ink-muted shrink-0">專案進度清單</h2>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-ink-muted shrink-0">
+            {activeFilter === 'reminders' ? '待申請清單' : '專案進度清單'}
+          </h2>
 
           {/* 篩選中的狀態列：常駐在 DOM 裡，用透明度與位移進退場，
               取消篩選時才有退場動畫，而不是整塊瞬間不見 */}
@@ -301,7 +433,7 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
                   ${chipCard.surface} ${chipCard.text} hover:opacity-75 transition-opacity duration-200 motion-reduce:transition-none`}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
-                <span className="whitespace-nowrap">{chipCard.label} · {sortedProjects.length} 件</span>
+                <span className="whitespace-nowrap">{chipCard.label} · {chipCard.match ? sortedProjects.length : reminders.length} 件</span>
                 <svg className="w-3.5 h-3.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg>
                 <span className="sr-only">清除篩選</span>
               </button>
@@ -313,7 +445,18 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
             內層 key 隨篩選改變 → 重新掛載以重播漸進進場 */}
         <div ref={listRef}>
         <div key={activeFilter ?? 'all'} className="flex flex-col">
-          {sortedProjects.length === 0 ? (
+          {activeFilter === 'reminders' ? (
+            <ReminderList
+              reminders={reminders}
+              skipped={skippedOverrides}
+              canEdit={canEdit}
+              onCreate={openCreateFromReminder}
+              onSkip={handleSkip}
+              onDeleteManual={(reminder) => removeOverride(reminder.override.id, '已刪除提醒')}
+              onAddManual={handleAddManual}
+              onRestore={(override) => removeOverride(override.id, '已復原提醒')}
+            />
+          ) : sortedProjects.length === 0 ? (
             activeCard ? (
               <div className="p-12 md:p-16 flex flex-col items-center gap-3 text-center animate-row-enter motion-reduce:animate-none">
                 <div className="w-12 h-12 rounded-full bg-paper border border-line flex items-center justify-center">
@@ -406,15 +549,15 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
       <ProjectDetailModal 
         project={selectedProject} 
         onClose={() => setSelectedProject(null)} 
-        onProjectDeleted={() => { 
-          setProjects(prev => prev.filter(p => p.id !== selectedProject?.id));
-          setSelectedProject(null); 
+        onProjectDeleted={() => {
+          setAllProjects(prev => prev.filter(p => p.id !== selectedProject?.id));
+          setSelectedProject(null);
         }}
-        onProjectUpdated={() => { 
-          fetchProjectsBySales(selectedSales);
+        onProjectUpdated={() => {
+          fetchData();
         }}
-        onStatusChange={(id, newStatus, hasUnread) => { 
-          setProjects(prev => 
+        onStatusChange={(id, newStatus, hasUnread) => {
+          setAllProjects(prev =>
             prev.map(p => 
               p.id === id ? { ...p, status: newStatus, has_unread: hasUnread } : p
             )
@@ -423,7 +566,13 @@ export default function SalesDashboard({ currentUser, searchTerm, refreshKey, on
         onCopyProject={onCopyProject} 
       />
       
-      <NewProjectModal isOpen={isNewModalOpen} onClose={() => setIsNewModalOpen(false)} initialData={copyData} onProjectAdded={() => {}} />
+      <NewProjectModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        prefill={createPrefill}
+        onProjectAdded={handleCreatedFromReminder}
+        currentUser={currentUser}
+      />
     </div>
   );
 }

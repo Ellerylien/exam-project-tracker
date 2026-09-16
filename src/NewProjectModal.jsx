@@ -25,7 +25,9 @@ function identityDefaults(user) {
   return out;
 }
 
-export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initialData, currentUser }) {
+// prefill：從「待申請提醒」建立申請時傳入 { data, note, teacherOptions }。與複製專案不同，
+// 只帶入有值的欄位、保留登入身份預選，並且仍可上傳申請表覆蓋。
+export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initialData, prefill, currentUser }) {
   const toast = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCopyMode, setIsCopyMode] = useState(false);
@@ -77,14 +79,19 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
       setParseNote(null);
       setImportedApplication(null);
       // 全新專案：依登入身份預選負責業務／業助／製作人員（規則 6）
-      const initial = initialData
-        ? { ...initialData, deadline: '', status: '排隊區' }
-        : { ...EMPTY_FORM, ...identityDefaults(currentUser) };
-      setIsCopyMode(!!initialData);
+      const filledPrefill = Object.fromEntries(Object.entries(prefill?.data || {}).filter(([, value]) => value));
+      const initial = prefill
+        ? { ...EMPTY_FORM, ...identityDefaults(currentUser), ...filledPrefill }
+        : initialData
+          ? { ...initialData, deadline: '', status: '排隊區' }
+          : { ...EMPTY_FORM, ...identityDefaults(currentUser) };
+      setIsCopyMode(!prefill && !!initialData);
       setFormData(initial);
       initialFormRef.current = JSON.stringify(initial);
     }
-  }, [isOpen, initialData, currentUser]);
+  }, [isOpen, initialData, prefill, currentUser]);
+
+  const title = prefill ? '建立申請' : isCopyMode ? '複製專案' : '新增專案';
 
   if (!isRendered) return null;
 
@@ -230,9 +237,9 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
     setIsSubmitting(true);
     try {
       const { id, ...dataToInsert } = formData;
-      const { error } = await supabase.from('projects').insert([dataToInsert]);
+      const { data: created, error } = await supabase.from('projects').insert([dataToInsert]).select().single();
       if (error) throw error;
-      onProjectAdded();
+      onProjectAdded(created);
       onClose();
       toast.success(`「${formData.name}」已建立`);
     } catch (error) {
@@ -258,7 +265,7 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={isCopyMode ? '複製專案' : '新增專案'}
+        aria-label={title}
         className={`bg-paper-warm rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] md:max-h-[90vh] flex flex-col overflow-hidden text-ink transition-all duration-300 ease-out transform
           ${isVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 sm:translate-y-12 scale-95'}
         `}
@@ -267,7 +274,7 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
         
         <div className="px-5 py-4 border-b border-line flex justify-between items-center bg-card shrink-0">
           <h2 className="text-lg md:text-xl font-bold text-ink">
-            {isCopyMode ? '複製專案' : '新增專案'}
+            {title}
           </h2>
           <button onClick={requestClose} aria-label="關閉" className="text-ink-muted hover:text-ink bg-paper p-1.5 rounded-md transition-colors shrink-0">
             <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
@@ -276,6 +283,12 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
 
         <div className="flex-1 overflow-y-auto p-5 md:p-8 bg-card">
           <form id="new-project-form" onSubmit={handleSubmit} className="flex flex-col gap-6 md:gap-7">
+
+            {prefill?.note && (
+              <div className="text-xs rounded-md px-3 py-2 border bg-info-bg text-info border-info-line/40 leading-relaxed">
+                {prefill.note}
+              </div>
+            )}
 
             {!isCopyMode && (
               <div
@@ -346,14 +359,38 @@ export default function NewProjectModal({ isOpen, onClose, onProjectAdded, initi
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
-              <div>
-                <label className={labelClassName}>閱卷老師 <span className="text-danger">*</span> <CopyWarning /></label>
-                <input type="text" name="teacher_name" value={formData.teacher_name} onChange={handleChange} className={inputClassName} required />
-              </div>
-              <div>
-                <label className={labelClassName}>老師 Email <span className="text-danger">*</span> <CopyWarning /></label>
-                <input type="email" name="teacher_email" value={formData.teacher_email} onChange={handleChange} className={inputClassName} required />
+            <div className="flex flex-col gap-3">
+              {/* 從提醒建立申請時，列出本學年這個系列之前的閱卷老師，點一下帶入姓名與 Email */}
+              {prefill?.teacherOptions?.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-bold text-ink-muted">沿用之前的閱卷老師</span>
+                  {prefill.teacherOptions.map(option => {
+                    const isCurrent = formData.teacher_name === option.teacher_name && formData.teacher_email === option.teacher_email;
+                    return (
+                      <button
+                        key={option.teacher_name}
+                        type="button"
+                        aria-pressed={isCurrent}
+                        onClick={() => setFormData(prev => ({ ...prev, teacher_name: option.teacher_name, teacher_email: option.teacher_email }))}
+                        className="text-xs bg-line text-accent px-3 py-1 rounded-md shadow-[0_1px_2px_rgba(0,0,0,0.05)] border border-line-strong hover:bg-line-strong transition-colors font-bold inline-flex items-center gap-1.5"
+                      >
+                        {isCurrent && <span aria-hidden="true">✓</span>}
+                        {option.teacher_name}
+                        <span className="font-normal text-ink-muted">{option.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
+                <div>
+                  <label className={labelClassName}>閱卷老師 <span className="text-danger">*</span> <CopyWarning /></label>
+                  <input type="text" name="teacher_name" value={formData.teacher_name} onChange={handleChange} className={inputClassName} required />
+                </div>
+                <div>
+                  <label className={labelClassName}>老師 Email <span className="text-danger">*</span> <CopyWarning /></label>
+                  <input type="email" name="teacher_email" value={formData.teacher_email} onChange={handleChange} className={inputClassName} required />
+                </div>
               </div>
             </div>
 
