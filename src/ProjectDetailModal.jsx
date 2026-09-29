@@ -17,7 +17,11 @@ export default function ProjectDetailModal({ project, onClose, onStatusChange, o
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [emailCopied, setEmailCopied] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
-  
+  // 勾選才推播到 LINE 群組（額度有限，一般討論不推）
+  const [notifyLine, setNotifyLine] = useState(false);
+  // { limit, used }，只有管理者會去查
+  const [lineQuota, setLineQuota] = useState(null);
+
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editingContent, setEditingContent] = useState('');
   // { type: 'project' } 或 { type: 'comment', id }，控制刪除確認視窗
@@ -27,6 +31,7 @@ export default function ProjectDetailModal({ project, onClose, onStatusChange, o
   const refreshUnread = useUnreadRefresh();
 
   const [loggedInUser, setLoggedInUser] = useState({ name: 'Guest' });
+  const isAdmin = (loggedInUser.role || '').toLowerCase().includes('admin');
 
 const AVATAR_MAP = { 
     'Deborah': 'Deborah_6', 'Lisa': 'Lisa_50', 'Jessica': 'Jessica_16', 
@@ -70,9 +75,10 @@ const AVATAR_MAP = {
 
   useEffect(() => { 
     if (activeProject) {
-      fetchComments(); 
-      setReplyingTo(null); 
+      fetchComments();
+      setReplyingTo(null);
       setEditingCommentId(null);
+      setNotifyLine(false);
       if (activeProject.has_unread) {
         supabase.from('projects').update({ has_unread: false }).eq('id', activeProject.id).then(({ error }) => {
           if (!error) {
@@ -84,6 +90,17 @@ const AVATAR_MAP = {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProject?.id]);
+
+  // 管理者才顯示 LINE 本月額度，每次開啟專案時更新一次
+  useEffect(() => {
+    if (!isAdmin || !activeProject?.id) return;
+    let cancelled = false;
+    fetch('/api/line-quota')
+      .then(r => r.json())
+      .then(data => { if (!cancelled && data.ok) setLineQuota({ limit: data.limit, used: data.used }); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isAdmin, activeProject?.id]);
 
   // Realtime：訂閱目前開啟專案的留言變動，討論串即時更新
   useEffect(() => {
@@ -109,10 +126,11 @@ const AVATAR_MAP = {
       await supabase.from('comments').insert({ 
         project_id: activeProject.id, 
         author: loggedInUser.name, 
-        content: newComment.trim(), 
-        parent_id: replyingTo ? replyingTo.id : null 
+        content: newComment.trim(),
+        parent_id: replyingTo ? replyingTo.id : null,
+        notify_line: notifyLine
       });
-      setNewComment(''); setReplyingTo(null); fetchComments();
+      setNewComment(''); setReplyingTo(null); setNotifyLine(false); fetchComments();
       if (loggedInUser.name !== 'Ellery') {
         await supabase.from('projects').update({ has_unread: true }).eq('id', activeProject.id);
         if (onStatusChange) onStatusChange(activeProject.id, activeProject.status, true);
@@ -208,6 +226,11 @@ const AVATAR_MAP = {
     }
     return <p className="text-sm text-ink-soft leading-relaxed break-words mt-0.5">{comment.content}</p>;
   };
+
+  // 標出留言時有勾「同步通知 LINE」的留言，讓大家知道群組那邊也收得到
+  const renderLineBadge = (comment) => comment.notify_line && (
+    <span title="留言時勾選了同步通知 LINE 群組" className="text-[10px] font-bold text-success bg-success-bg border border-success-line px-1.5 rounded">LINE</span>
+  );
 
   const renderCommentActions = (comment, isSystem) => (
     <div className="flex items-center gap-3 mt-2.5 text-ink-faint">
@@ -339,6 +362,7 @@ const AVATAR_MAP = {
                       <div className="flex items-baseline gap-2 mb-1">
                         <span className="text-sm font-bold text-ink">{comment.author}</span>
                         <span className="text-[11px] text-ink-muted">{new Date(comment.created_at).toLocaleString('zh-TW', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })}</span>
+                        {renderLineBadge(comment)}
                       </div>
                       
                       {renderCommentContent(comment)}
@@ -353,6 +377,7 @@ const AVATAR_MAP = {
                             <div className="flex items-baseline gap-2 mb-0.5">
                               <span className="text-xs font-bold text-ink">{reply.author}</span>
                               <span className="text-[11px] text-ink-muted">{new Date(reply.created_at).toLocaleString('zh-TW', { hour:'2-digit', minute:'2-digit' })}</span>
+                              {renderLineBadge(reply)}
                             </div>
                             
                             {renderCommentContent(reply)}
@@ -382,6 +407,21 @@ const AVATAR_MAP = {
               <button onClick={handleAddComment} title="送出" className="w-full sm:w-10 h-10 flex items-center justify-center bg-accent text-paper rounded-md hover:bg-accent-strong shadow-sm transition-colors shrink-0">
                 <svg className="w-4 h-4 translate-x-[-1px] translate-y-[1px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
               </button>
+            </div>
+            {/* sm:pl-10 對齊輸入框（頭像 w-8 + gap-2） */}
+            <div className="flex items-center justify-between gap-3 mt-2 sm:pl-10">
+              <label className="flex items-center gap-1.5 text-xs text-ink-muted cursor-pointer select-none">
+                <input type="checkbox" checked={notifyLine} onChange={(e) => setNotifyLine(e.target.checked)} className="w-3.5 h-3.5 accent-accent cursor-pointer" />
+                同步通知 LINE 群組
+              </label>
+              {isAdmin && lineQuota && (
+                <span
+                  title="LINE 官方帳號本月已傳送則數；推到群組時依群組人數（不含官方帳號）計算則數"
+                  className={`text-[11px] ${lineQuota.limit != null && lineQuota.limit - lineQuota.used < 20 ? 'text-danger font-bold' : 'text-ink-muted'}`}
+                >
+                  LINE 本月額度 {lineQuota.used} / {lineQuota.limit ?? '無上限'}
+                </span>
+              )}
             </div>
           </div>
         </div>

@@ -1,7 +1,7 @@
 // 正式推播程式：由 Supabase 資料庫 Webhook 觸發 → 發 LINE 通知
 //
 // 觸發來源（在 Supabase 後台設定 Database Webhooks 指向這支程式）：
-//   1) comments 表 INSERT  → 有人留言/回覆
+//   1) comments 表 INSERT  → 有人留言/回覆，且留言時勾了「同步通知 LINE」（notify_line）
 //   2) projects 表 UPDATE  → 案件進度狀態改變（含「需修改 / 確認無誤」）
 //
 // 流程：判斷事件 → 找出該案件的業務+業助 → 在 line_groups 查對應群組 → 推 LINE。
@@ -28,6 +28,10 @@ export default async function handler(req, res) {
     let message = null;
 
     if (table === 'comments' && type === 'INSERT') {
+      // LINE 額度有限（輕用量每月 200 則、群組依人數計則數），只推留言者勾選的重要留言
+      if (!record.notify_line) {
+        return res.status(200).json({ ok: true, skip: 'comment not flagged for line' });
+      }
       // 留言：payload 只有 project_id，要回頭查專案拿到業務/業助/名稱
       project = await fetchProject(record.project_id);
       if (!project) return res.status(200).json({ ok: true, skip: 'project not found' });
