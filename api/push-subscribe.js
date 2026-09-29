@@ -76,7 +76,7 @@ export default async function handler(req, res) {
             title: '🔔 測試通知',
             body: `${name}，這台裝置的通知已開啟。之後你負責的案件有新留言或進度變更，都會通知你。`,
             url: '/',
-          }), { TTL: 60 });
+          }), { TTL: 60, urgency: 'high' });
         } catch (err) {
           console.error('[push-subscribe] 測試通知失敗：', err.statusCode, err.body);
           return res.status(502).json({ ok: false, error: 'test push failed' });

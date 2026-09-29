@@ -150,8 +150,10 @@ async function notifyPush(project, { title, body, exclude }) {
 
   // 點通知時由 service worker（public/sw.js）開啟 url，App 讀 ?project= 直接打開該案件
   const payload = JSON.stringify({ title, body, url: `/?project=${project.id}`, projectId: project.id });
+  // urgency high：Android 休眠省電時一般優先權的推播會延後送達，工作通知要即時
+  const options = { TTL: 24 * 60 * 60, urgency: 'high' };
   const results = await Promise.allSettled(
-    subs.map(s => webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 24 * 60 * 60 }))
+    subs.map(s => webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, options))
   );
 
   let sent = 0;
