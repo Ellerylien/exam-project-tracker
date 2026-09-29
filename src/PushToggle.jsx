@@ -127,8 +127,8 @@ export default function PushToggle({ userName }) {
   });
 
   const label = LABELS[status] ?? '手機通知';
-  // 綠點 = 已開啟；琥珀點 = 還沒開，提醒大家開啟
-  const dot = status === 'on' ? 'bg-success' : (status === 'off' || status === 'ios-install') ? 'bg-warning' : null;
+  // 只在還沒開啟時亮琥珀點提醒；已開啟就不標示，避免點點吸引人去按、誤把通知關掉
+  const dot = (status === 'off' || status === 'ios-install') ? 'bg-warning' : null;
 
   return (
     <div className="relative shrink-0">
