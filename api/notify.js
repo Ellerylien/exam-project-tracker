@@ -104,8 +104,10 @@ async function pushToLine(to, text) {
     },
     body: JSON.stringify({ to, messages: [{ type: 'text', text }] }),
   });
+  // 丟出錯誤讓 handler 回 { ok: false }，Supabase 的 net._http_response 才看得出推播失敗
+  // （例：429 = LINE 官方帳號本月訊息額度用完）
   if (!r.ok) {
-    console.error('[notify] LINE 推播失敗：', r.status, await r.text());
+    throw new Error(`LINE 推播失敗：${r.status} ${await r.text()}`);
   }
 }
 
