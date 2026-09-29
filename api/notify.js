@@ -1,15 +1,36 @@
-// 正式推播程式：由 Supabase 資料庫 Webhook 觸發 → 發 LINE 通知
+// 正式推播程式：由 Supabase 資料庫 Webhook 觸發 → 發 LINE 通知 + 手機／瀏覽器推播
 //
 // 觸發來源（在 Supabase 後台設定 Database Webhooks 指向這支程式）：
-//   1) comments 表 INSERT  → 有人留言/回覆，且留言時勾了「同步通知 LINE」（notify_line）
-//   2) projects 表 UPDATE  → 案件進度狀態改變（含「需修改 / 確認無誤」）
+//   1) comments 表 INSERT  → 有人留言/回覆
+//   2) projects 表 UPDATE  → 案件進度狀態改變
 //
-// 流程：判斷事件 → 找出該案件的業務+業助 → 在 line_groups 查對應群組 → 推 LINE。
+// 兩條管道各自獨立，一邊失敗不影響另一邊：
+//   LINE 群組 —— 額度有限（輕用量每月 200 則、群組依人數計則數），只推
+//                「需修改 / 確認無誤」與留言時勾了「同步通知 LINE」的留言。
+//                找出該案件的業務+業助 → 在 line_groups 查對應群組 → 推 LINE。
+//   手機推播 —— 免費無上限，所有留言與進度變更都推給該案的業務、業助、製作人員
+//                （留言不推給留言者本人），裝置訂閱存在 push_subscriptions。
+
+import webpush from 'web-push';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const LINE_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET; // 與 Supabase webhook 自訂標頭比對，防止外人亂打
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
+
+const pushEnabled = Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
+if (pushEnabled) {
+  // subject 是推播服務（Google／Apple）遇到問題時的聯絡方式，用網站網址即可
+  webpush.setVapidDetails('https://exam-project-tracker.vercel.app', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+}
+
+// 進度變成這些階段時才推 LINE（手機推播則是任何進度變更都推）
+const LINE_STATUS_MESSAGES = {
+  '修改題目': '考題需要修改',
+  '製作錄音稿與學生卷': '老師閱卷 OK，請進行製作錄音稿與學生卷',
+};
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
@@ -25,46 +46,51 @@ export default async function handler(req, res) {
     const { type, table, record, old_record } = body ?? {};
 
     let project = null;
-    let message = null;
+    let lineMessage = null; // null = 這次不推 LINE
+    let push = null;        // null = 這次不送手機推播
 
     if (table === 'comments' && type === 'INSERT') {
-      // LINE 額度有限（輕用量每月 200 則、群組依人數計則數），只推留言者勾選的重要留言
-      if (!record.notify_line) {
-        return res.status(200).json({ ok: true, skip: 'comment not flagged for line' });
-      }
       // 留言：payload 只有 project_id，要回頭查專案拿到業務/業助/名稱
       project = await fetchProject(record.project_id);
       if (!project) return res.status(200).json({ ok: true, skip: 'project not found' });
       const replyTag = record.parent_id ? '（回覆）' : '';
-      message = `💬 ${project.name}\n${record.author} 留言${replyTag}：\n${truncate(record.content, 200)}`;
-    } else if (table === 'projects' && type === 'UPDATE') {
-      // 進度變更：只在狀態「真的改變」且變成下列指定階段時，才發通知
-      const STATUS_MESSAGES = {
-        '修改題目': '考題需要修改',
-        '製作錄音稿與學生卷': '老師閱卷 OK，請進行製作錄音稿與學生卷',
+      if (record.notify_line) {
+        lineMessage = `💬 ${project.name}\n${record.author} 留言${replyTag}：\n${truncate(record.content, 200)}`;
+      }
+      push = {
+        title: `💬 ${project.name}`,
+        body: `${record.author}${replyTag}：${truncate(record.content, 120)}`,
+        exclude: record.author,
       };
+    } else if (table === 'projects' && type === 'UPDATE') {
+      // 進度變更：只在狀態「真的改變」時才通知（改其他欄位、清未讀等不算）
       if (!old_record || old_record.status === record.status) {
         return res.status(200).json({ ok: true, skip: 'status unchanged' });
       }
-      const note = STATUS_MESSAGES[record.status];
-      if (!note) {
-        // 其他階段（結案、出題中…）不發進度通知
-        return res.status(200).json({ ok: true, skip: 'status not notified' });
-      }
       project = record;
-      message = `📌 ${project.name}\n${note}`;
+      const note = LINE_STATUS_MESSAGES[record.status];
+      if (note) lineMessage = `📌 ${project.name}\n${note}`;
+      push = {
+        title: `📌 ${project.name}`,
+        body: `${old_record.status} → ${record.status}${note ? `：${note}` : ''}`,
+      };
     } else {
       return res.status(200).json({ ok: true, skip: 'event ignored' });
     }
 
-    const groupId = await fetchGroupId(project.sales_rep, project.sales_assistant);
-    if (!groupId) {
-      console.warn(`[notify] 找不到對應群組：${project.sales_rep} × ${project.sales_assistant}`);
-      return res.status(200).json({ ok: true, skip: 'no matching line group' });
+    const [line, webPush] = await Promise.allSettled([
+      lineMessage ? notifyLine(project, lineMessage) : 'skip',
+      push ? notifyPush(project, push) : 'skip',
+    ]);
+    for (const r of [line, webPush]) {
+      if (r.status === 'rejected') console.error('[notify] 發生錯誤：', r.reason);
     }
-
-    await pushToLine(groupId, message);
-    return res.status(200).json({ ok: true });
+    const describe = (r) => (r.status === 'fulfilled' ? r.value : String(r.reason));
+    return res.status(200).json({
+      ok: line.status === 'fulfilled' && webPush.status === 'fulfilled',
+      line: describe(line),
+      push: describe(webPush),
+    });
   } catch (err) {
     console.error('[notify] 發生錯誤：', err);
     // 回 200 避免 Supabase 端一直重試；錯誤細節看 Vercel Logs
@@ -72,13 +98,16 @@ export default async function handler(req, res) {
   }
 }
 
-// ── 工具函式 ─────────────────────────────────────────
+// ── LINE 群組 ─────────────────────────────────────────
 
-async function fetchProject(id) {
-  const url = `${SUPABASE_URL}/rest/v1/projects?id=eq.${id}&select=name,sales_rep,sales_assistant,status`;
-  const r = await fetch(url, { headers: sbHeaders() });
-  const data = await r.json();
-  return Array.isArray(data) ? data[0] : null;
+async function notifyLine(project, message) {
+  const groupId = await fetchGroupId(project.sales_rep, project.sales_assistant);
+  if (!groupId) {
+    console.warn(`[notify] 找不到對應群組：${project.sales_rep} × ${project.sales_assistant}`);
+    return 'skip: no matching line group';
+  }
+  await pushToLine(groupId, message);
+  return 'sent';
 }
 
 async function fetchGroupId(rep, assistant) {
@@ -90,13 +119,6 @@ async function fetchGroupId(rep, assistant) {
   const r = await fetch(url, { headers: sbHeaders() });
   const data = await r.json();
   return Array.isArray(data) && data[0] ? data[0].group_id : null;
-}
-
-function sbHeaders() {
-  return {
-    apikey: SUPABASE_SERVICE_ROLE_KEY,
-    Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-  };
 }
 
 async function pushToLine(to, text) {
@@ -113,6 +135,69 @@ async function pushToLine(to, text) {
   if (!r.ok) {
     throw new Error(`LINE 推播失敗：${r.status} ${await r.text()}`);
   }
+}
+
+// ── 手機／瀏覽器推播 ─────────────────────────────────
+
+async function notifyPush(project, { title, body, exclude }) {
+  if (!pushEnabled) return 'skip: push not configured';
+  const names = [...new Set([project.sales_rep, project.sales_assistant, project.production_staff])]
+    .filter(name => name && name !== exclude);
+  if (names.length === 0) return 'skip: no recipients';
+
+  const subs = await fetchSubscriptions(names);
+  if (subs.length === 0) return 'skip: no subscribed devices';
+
+  // 點通知時由 service worker（public/sw.js）開啟 url，App 讀 ?project= 直接打開該案件
+  const payload = JSON.stringify({ title, body, url: `/?project=${project.id}`, projectId: project.id });
+  const results = await Promise.allSettled(
+    subs.map(s => webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 24 * 60 * 60 }))
+  );
+
+  let sent = 0;
+  const failures = [];
+  await Promise.all(results.map(async (r, i) => {
+    if (r.status === 'fulfilled') { sent++; return; }
+    // 404 / 410 = 使用者關了通知或解除安裝，訂閱已失效，順手清掉
+    if (r.reason?.statusCode === 404 || r.reason?.statusCode === 410) {
+      await deleteSubscription(subs[i].endpoint);
+      return;
+    }
+    failures.push(`${subs[i].user_name}: ${r.reason?.statusCode ?? ''} ${r.reason?.body ?? r.reason}`);
+  }));
+  if (failures.length) throw new Error(`手機推播部分失敗（成功 ${sent}/${subs.length}）：${failures.join('；')}`);
+  return `sent ${sent}/${subs.length}`;
+}
+
+async function fetchSubscriptions(names) {
+  const list = names.map(n => `"${n.replace(/"/g, '\\"')}"`).join(',');
+  const url = `${SUPABASE_URL}/rest/v1/push_subscriptions?user_name=in.(${encodeURIComponent(list)})&select=endpoint,user_name,p256dh,auth`;
+  const r = await fetch(url, { headers: sbHeaders() });
+  const data = await r.json();
+  return Array.isArray(data) ? data : [];
+}
+
+async function deleteSubscription(endpoint) {
+  await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}`, {
+    method: 'DELETE',
+    headers: sbHeaders(),
+  });
+}
+
+// ── 共用 ─────────────────────────────────────────────
+
+async function fetchProject(id) {
+  const url = `${SUPABASE_URL}/rest/v1/projects?id=eq.${id}&select=id,name,sales_rep,sales_assistant,production_staff,status`;
+  const r = await fetch(url, { headers: sbHeaders() });
+  const data = await r.json();
+  return Array.isArray(data) ? data[0] : null;
+}
+
+function sbHeaders() {
+  return {
+    apikey: SUPABASE_SERVICE_ROLE_KEY,
+    Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+  };
 }
 
 function truncate(s, n) {

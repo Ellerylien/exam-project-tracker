@@ -7,6 +7,7 @@ import NewProjectModal from './NewProjectModal';
 import ProjectDetailModal from './ProjectDetailModal';
 import LoginScreen from './LoginScreen';
 import UnreadInbox from './UnreadInbox';
+import PushToggle from './PushToggle';
 import { supabase } from './supabaseClient';
 
 export default function App() {
@@ -24,6 +25,8 @@ export default function App() {
   // 從搜尋結果或未讀通知直接開啟的專案（不論目前在哪個視圖）
   const [spotlightProject, setSpotlightProject] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  // 手機版導覽列第二排已經很擠（視圖分頁會被壓到要橫向捲動），手機通知按鈕改放第一排搜尋框旁
+  const [isDesktop, setIsDesktop] = useState(() => matchMedia('(min-width: 768px)').matches);
 
   // 主題：預設跟隨系統，手動切換後記住選擇（index.html 有防閃爍腳本套用初始值）
   const [theme, setTheme] = useState(() =>
@@ -34,6 +37,13 @@ export default function App() {
     document.documentElement.classList.toggle('dark', theme === 'dark');
     localStorage.setItem('theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    const mq = matchMedia('(min-width: 768px)');
+    const handleChange = (e) => setIsDesktop(e.matches);
+    mq.addEventListener('change', handleChange);
+    return () => mq.removeEventListener('change', handleChange);
+  }, []);
 
   // 全站未讀回覆數：登入與資料異動時重算，深層元件透過 UnreadContext 觸發
   const refreshUnread = useCallback(async () => {
@@ -57,6 +67,25 @@ export default function App() {
       })
       .subscribe();
     return () => { clearTimeout(timer); supabase.removeChannel(channel); };
+  }, [currentUser]);
+
+  // 點手機通知直接打開該案件：網站沒開著時 service worker 會開 /?project=<id>，
+  // 已開著時改傳訊息過來（public/sw.js）。還沒登入就先留著網址參數，登入後再開。
+  useEffect(() => {
+    if (!currentUser) return;
+    const fetchProject = (id) => supabase.from('projects').select('*').eq('id', id).maybeSingle();
+    const id = new URLSearchParams(window.location.search).get('project');
+    if (id) {
+      window.history.replaceState(null, '', window.location.pathname);
+      fetchProject(id).then(({ data }) => { if (data) setSpotlightProject(data); });
+    }
+    if (!('serviceWorker' in navigator)) return;
+    const handleMessage = (e) => {
+      if (e.data?.type !== 'open-project') return;
+      fetchProject(e.data.projectId).then(({ data }) => { if (data) setSpotlightProject(data); });
+    };
+    navigator.serviceWorker.addEventListener('message', handleMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', handleMessage);
   }, [currentUser]);
 
 const AVATAR_MAP = { 
@@ -113,6 +142,8 @@ const AVATAR_MAP = {
 
   if (!currentUser) return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
 
+  const pushToggle = currentUser.role?.toLowerCase() !== 'guest' && <PushToggle userName={currentUser.name} />;
+
   return (
     <UnreadContext.Provider value={refreshUnread}>
     <div className="min-h-screen bg-paper flex flex-col">
@@ -150,6 +181,8 @@ const AVATAR_MAP = {
               </div>
             )}
           </div>
+
+          {!isDesktop && pushToggle}
         </div>
 
         <div className="flex items-center justify-between w-full md:w-auto gap-2 md:gap-3">
@@ -168,6 +201,8 @@ const AVATAR_MAP = {
                 <span className="hidden sm:inline">新增專案</span>
               </button>
             )}
+
+            {isDesktop && pushToggle}
 
             <UnreadInbox count={unreadCount} onOpenProject={setSpotlightProject} />
 
