@@ -1,5 +1,5 @@
-// 團隊成員清單（留言 @提及選單用），整個 App 共用同一次請求。
-// 來源是 api/users.js（只有 id / name / role），訪客不列入。
+// 團隊成員清單（留言 @提及選單、寄信範本用），整個 App 共用同一次請求。
+// 來源是 api/users.js（id / name / role / email / full_name / zh_name），訪客不列入。
 let membersPromise = null;
 
 export function loadTeamMembers() {

@@ -8,6 +8,7 @@ import { useToast } from './toast';
 import { useUnreadRefresh } from './unread';
 import MentionInput from './MentionInput';
 import { loadTeamMembers, extractMentions, escapeRegExp } from './team';
+import { MAIL_KINDS, buildMail, mailtoHref, downloadEml } from './mail';
 
 export default function ProjectDetailModal({ project, onClose, onStatusChange, onProjectDeleted, onProjectUpdated, onCopyProject }) {
   const [activeProject, setActiveProject] = useState(null);
@@ -36,6 +37,7 @@ export default function ProjectDetailModal({ project, onClose, onStatusChange, o
 
   const [loggedInUser, setLoggedInUser] = useState({ name: 'Guest' });
   const isAdmin = (loggedInUser.role || '').toLowerCase().includes('admin');
+  const isGuest = (loggedInUser.role || '').toLowerCase() === 'guest';
 
 const AVATAR_MAP = { 
     'Deborah': 'Deborah_6', 'Lisa': 'Lisa_50', 'Jessica': 'Jessica_16', 
@@ -222,6 +224,16 @@ const AVATAR_MAP = {
 
   if (!activeProject) return null;
 
+  // 三種寄信範本：收件人／副本／內文依專案與成員資料帶入（src/mail.js）
+  const mails = MAIL_KINDS.map(kind => ({ ...kind, ...buildMail(kind.key, activeProject, members, loggedInUser.name) }));
+
+  // 電腦下載 .eml 草稿（保留紅字粗體）；手機開不了 Outlook 草稿，照連結走 mailto 純文字
+  const handleMailClick = (e, mail) => {
+    if (window.matchMedia('(pointer: coarse)').matches) return;
+    e.preventDefault();
+    downloadEml(mail);
+  };
+
   const topLevelComments = comments.filter(c => !c.parent_id);
   const getReplies = (parentId) => comments.filter(c => c.parent_id === parentId);
 
@@ -373,6 +385,32 @@ const AVATAR_MAP = {
                   )}
                 </div>
               </div>
+              {!isGuest && (
+                <div>
+                  <span className="text-sm font-bold text-ink-muted block mb-2">寄信<span className="ml-2 text-xs font-medium text-ink-faint">下載 Outlook 郵件草稿，開啟後加上附件即可寄出</span></span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {mails.map(mail => {
+                      const recipients = `給 ${mail.toLabel}${mail.ccLabel ? `・副本 ${mail.ccLabel}` : ''}`;
+                      const content = (
+                        <>
+                          <span className="flex items-center gap-1.5 text-sm font-bold">
+                            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>
+                            {mail.label}
+                          </span>
+                          <span className="text-[11px] text-ink-muted truncate">給 {mail.toLabel}</span>
+                          {mail.ccLabel && <span className="text-[11px] text-ink-muted truncate">副本 {mail.ccLabel}</span>}
+                        </>
+                      );
+                      const base = 'flex flex-col gap-0.5 min-w-0 px-3 py-2 rounded-lg border border-line bg-paper';
+                      return mail.to.length ? (
+                        <a key={mail.key} href={mailtoHref(mail)} onClick={(e) => handleMailClick(e, mail)} title={recipients} className={`${base} text-ink hover:bg-line hover:border-line-strong transition-colors`}>{content}</a>
+                      ) : (
+                        <span key={mail.key} aria-disabled="true" title={`找不到收件人（${mail.toLabel}）的 Email`} className={`${base} text-ink-faint opacity-60 cursor-not-allowed`}>{content}</span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               <div><span className="text-sm font-bold text-ink-muted block mb-2">聽力題型</span><p className="font-medium text-ink-soft whitespace-pre-wrap leading-relaxed bg-paper p-4 rounded-lg border border-line">{activeProject.listening_types || '無'}</p></div>
               <div><span className="text-sm font-bold text-ink-muted block mb-2">閱讀題型</span><p className="font-medium text-ink-soft whitespace-pre-wrap leading-relaxed bg-paper p-4 rounded-lg border border-line">{activeProject.reading_types || '無'}</p></div>
               <div><span className="text-sm font-bold text-ink-muted block mb-2">注意事項</span><p className="font-medium text-ink-soft whitespace-pre-wrap leading-relaxed bg-paper p-4 rounded-lg border border-line">{activeProject.notes || '尚無備註'}</p></div>
