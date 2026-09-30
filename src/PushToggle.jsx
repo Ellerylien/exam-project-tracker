@@ -3,8 +3,8 @@ import { useToast } from './toast';
 import { isPushSupported, isIos, isStandalone, getSubscription, saveSubscription, subscribe, unsubscribe } from './push';
 
 // 導覽列的「手機通知」按鈕 + 說明面板。
-// 每台裝置各自開啟；開啟後使用者負責的案件（業務、業助、製作人員）
-// 有新留言或進度變更時，api/notify.js 會送推播到這台裝置。
+// 每台裝置各自開啟；開啟後使用者負責的案件（業務、業助、製作人員）進度變更、
+// 或有人在留言 @ 他時，api/notify.js 會送推播到這台裝置。
 
 // 'checking' | 'on' | 'off' | 'denied' | 'ios-install' | 'ios-old' | 'unsupported'
 function detectStatus() {
@@ -18,8 +18,8 @@ function detectStatus() {
 
 const MESSAGES = {
   checking: '檢查中…',
-  off: '開啟後，你負責的案件有新留言或進度變更時，這台裝置會跳出通知，網頁關著也收得到。手機、電腦要各自開啟一次。',
-  on: '這台裝置已開啟通知。你負責的案件有新留言或進度變更時，會通知你。',
+  off: '開啟後，你負責的案件進度變更、或有人在留言裡 @ 你時，這台裝置會跳出通知，網頁關著也收得到。手機、電腦要各自開啟一次。',
+  on: '這台裝置已開啟通知。你負責的案件進度變更、或有人在留言裡 @ 你時，會通知你。',
   denied: '這個網站的通知被封鎖了。請到瀏覽器的網站設定，把「通知」改成允許，再重新整理頁面。',
   'ios-install': 'iPhone 要先把網站加入主畫面才能收通知：用 Safari 開啟本網站 → 點下方「分享」→「加入主畫面」，之後從主畫面的圖示開啟，再回到這裡開啟通知。',
   'ios-old': 'iPhone 需要 iOS 16.4 以上才支援網頁通知，請先更新系統。',

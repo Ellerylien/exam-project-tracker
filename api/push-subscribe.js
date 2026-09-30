@@ -74,7 +74,7 @@ export default async function handler(req, res) {
         try {
           await webpush.sendNotification({ endpoint, keys: { p256dh, auth } }, JSON.stringify({
             title: '🔔 測試通知',
-            body: `${name}，這台裝置的通知已開啟。之後你負責的案件有新留言或進度變更，都會通知你。`,
+            body: `${name}，這台裝置的通知已開啟。之後你負責的案件進度變更、或有人在留言裡 @ 你，都會通知你。`,
             url: '/',
           }), { TTL: 60, urgency: 'high' });
         } catch (err) {
