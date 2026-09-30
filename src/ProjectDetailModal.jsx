@@ -227,7 +227,7 @@ const AVATAR_MAP = {
   // 三種寄信範本：收件人／副本／內文依專案與成員資料帶入（src/mail.js）
   const mails = MAIL_KINDS.map(kind => ({ ...kind, ...buildMail(kind.key, activeProject, members, loggedInUser.name) }));
 
-  // 電腦下載 .eml 草稿（保留紅字粗體）；手機開不了 Outlook 草稿，照連結走 mailto 純文字
+  // 電腦下載 .eml 草稿（保留字型與紅字）；手機開不了 Outlook 草稿，照連結走 mailto 純文字
   const handleMailClick = (e, mail) => {
     if (window.matchMedia('(pointer: coarse)').matches) return;
     e.preventDefault();

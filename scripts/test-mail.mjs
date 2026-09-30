@@ -82,11 +82,15 @@ test('沒填 Email 的人不帶入，沒有收件人就寄不出去', () => {
   assert.match(plainBody(r.paragraphs), /請與Richard專員聯絡/);
 });
 
-test('HTML 內文：專案名稱、教師卷、學生卷是紅字粗體，特殊字元會跳脫', () => {
+test('HTML 內文：思源宋體 Medium，專案名稱、教師卷、學生卷是 SemiBold 深紅，特殊字元會跳脫', () => {
   const html = htmlBody(buildMail('papers', project, members, 'Ellery').paragraphs);
-  const red = [...html.matchAll(/<b><span style="color:#C00000">(.*?)<\/span><\/b>/g)].map(m => m[1]);
+  const red = [...html.matchAll(/<span style='font-family:"思源宋體 SemiBold",serif;mso-fareast-font-family:"思源宋體 SemiBold";color:#C00000'>(.*?)<\/span>/g)].map(m => m[1]);
   assert.deepEqual(red, ['南科實中115上高二第一次段考', '教師卷', '學生卷']);
-  assert.match(html, /<p style="margin:0">&nbsp;<\/p>/);
+  assert.doesNotMatch(html, /<b>|font-weight/);
+  const paragraphs = [...html.matchAll(/<p class="MsoNormal" style='([^']*)'>/g)].map(m => m[1]);
+  assert.equal(paragraphs.length, 6);
+  assert.ok(paragraphs.every(s => s === 'margin:0;line-height:normal;font-size:12pt;font-family:"思源宋體 Medium",serif;mso-fareast-font-family:"思源宋體 Medium"'));
+  assert.match(html, /'>&nbsp;<\/p>/);
   assert.match(htmlBody(buildMail('review', { ...project, name: 'A&B <測驗>' }, members, 'Ellery').paragraphs), /A&amp;B &lt;測驗&gt;/);
 });
 

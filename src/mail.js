@@ -1,6 +1,6 @@
 // 寄信範本：專案詳情的「寄信」按鈕，收件人／副本／主旨／內文依專案與成員資料
 // （team_users 的 email / full_name / zh_name）帶入。
-// 電腦上下載 .eml 草稿（X-Unsent），傳統版 Outlook 開啟後就是新郵件、保留紅字粗體；
+// 電腦上下載 .eml 草稿（X-Unsent），傳統版 Outlook 開啟後就是新郵件、保留字型與紅字；
 // 手機開不了 Outlook 草稿，改用 mailto: 帶純文字。附件都要在郵件裡手動加。
 
 export const MAIL_KINDS = [
@@ -10,7 +10,10 @@ export const MAIL_KINDS = [
 ];
 
 const SIGN_OFF = '空中英語教室';
-// 原本範本的紅字粗體（Office 標準色「深紅」）
+// 比照平常寄信的格式：內文思源宋體 Medium；標示處用思源宋體 SemiBold 加深紅（Office 標準色），不是粗體
+const BODY_FONT = '思源宋體 Medium';
+const BODY_SIZE = '12pt';
+const EMPHASIS_FONT = '思源宋體 SemiBold';
 const EMPHASIS_COLOR = '#C00000';
 
 // 複姓只取常見的幾個，其餘一律取第一個字當姓
@@ -41,7 +44,7 @@ export function splitEmails(value) {
   return (value || '').split(/[\s,;，；、]+/).filter(s => s.includes('@'));
 }
 
-// 內文以段落表示：每段是字串與 { em } 的陣列，{ em } 是紅字粗體，空陣列是空行
+// 內文以段落表示：每段是字串與 { em } 的陣列，{ em } 是標示的紅字，空陣列是空行
 const em = (text) => ({ em: text });
 
 // 回傳 { to, cc, subject, paragraphs, toLabel, ccLabel }；to 為空代表寄不出去。
@@ -120,13 +123,18 @@ export function plainBody(paragraphs) {
 
 const escapeHtml = (s) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-// 字型比照傳統版 Outlook 中文預設的新細明體 12pt
+// Outlook 以 Word 解讀 HTML：font-family 管英數字、mso-fareast-font-family 管中文，兩個都要設。
+// 樣式直接寫在每一段與每個 span 上（空行也要，行高才一致），單行間距、段落前後不留距離
+const fontStyle = (font) => `font-family:"${font}",serif;mso-fareast-font-family:"${font}"`;
+const PARAGRAPH_STYLE = `margin:0;line-height:normal;font-size:${BODY_SIZE};${fontStyle(BODY_FONT)}`;
+const EMPHASIS_STYLE = `${fontStyle(EMPHASIS_FONT)};color:${EMPHASIS_COLOR}`;
+
 export function htmlBody(paragraphs) {
   const renderPart = (s) => typeof s === 'string'
     ? escapeHtml(s)
-    : `<b><span style="color:${EMPHASIS_COLOR}">${escapeHtml(s.em)}</span></b>`;
-  const lines = paragraphs.map(parts => `<p style="margin:0">${parts.length ? parts.map(renderPart).join('') : '&nbsp;'}</p>`);
-  return `<html><head><meta charset="utf-8"></head><body style="font-family:'新細明體',PMingLiU,serif;font-size:12pt">\r\n${lines.join('\r\n')}\r\n</body></html>`;
+    : `<span style='${EMPHASIS_STYLE}'>${escapeHtml(s.em)}</span>`;
+  const lines = paragraphs.map(parts => `<p class="MsoNormal" style='${PARAGRAPH_STYLE}'>${parts.length ? parts.map(renderPart).join('') : '&nbsp;'}</p>`);
+  return `<html><head><meta charset="utf-8"></head><body>\r\n${lines.join('\r\n')}\r\n</body></html>`;
 }
 
 function base64Utf8(text) {
