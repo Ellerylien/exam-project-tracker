@@ -12,7 +12,7 @@ export const MAIL_KINDS = [
 const SIGN_OFF = '空中英語教室';
 // 比照平常寄信的格式：內文思源宋體 Medium；標示處用思源宋體 SemiBold 加深紅（Office 標準色），不是粗體
 const BODY_FONT = '思源宋體 Medium';
-const BODY_SIZE = '12pt';
+const BODY_SIZE = '14pt';
 const EMPHASIS_FONT = '思源宋體 SemiBold';
 const EMPHASIS_COLOR = '#C00000';
 

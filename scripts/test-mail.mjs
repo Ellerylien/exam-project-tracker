@@ -89,7 +89,7 @@ test('HTML 內文：思源宋體 Medium，專案名稱、教師卷、學生卷�
   assert.doesNotMatch(html, /<b>|font-weight/);
   const paragraphs = [...html.matchAll(/<p class="MsoNormal" style='([^']*)'>/g)].map(m => m[1]);
   assert.equal(paragraphs.length, 6);
-  assert.ok(paragraphs.every(s => s === 'margin:0;line-height:normal;font-size:12pt;font-family:"思源宋體 Medium",serif;mso-fareast-font-family:"思源宋體 Medium"'));
+  assert.ok(paragraphs.every(s => s === 'margin:0;line-height:normal;font-size:14pt;font-family:"思源宋體 Medium",serif;mso-fareast-font-family:"思源宋體 Medium"'));
   assert.match(html, /'>&nbsp;<\/p>/);
   assert.match(htmlBody(buildMail('review', { ...project, name: 'A&B <測驗>' }, members, 'Ellery').paragraphs), /A&amp;B &lt;測驗&gt;/);
 });
