@@ -42,6 +42,8 @@ export default function KanbanBoard({ refreshKey, onCopyProject }) {
   const [flashColumn, setFlashColumn] = useState(null);
   // 拖曳卡片時要關掉手機版的逐欄吸附，不然邊緣自動捲動會一直被吸回原欄
   const [isDraggingCard, setIsDraggingCard] = useState(false);
+  // 拖著卡片停在哪顆膠囊上（導覽列同時是放置目標）
+  const [dragOverPill, setDragOverPill] = useState(null);
   const boardRef = useRef(null);
   const isDown = useRef(false);
   const startX = useRef(0);
@@ -53,20 +55,23 @@ export default function KanbanBoard({ refreshKey, onCopyProject }) {
   const spyLockRef = useRef(null);
   const spyFrameRef = useRef(0);
   const flashTimerRef = useRef(null);
+  const springTimerRef = useRef(null);
 
   useEffect(() => { fetchProjects(); return () => stopAutoScroll(); }, [refreshKey]);
 
   useEffect(() => () => {
     clearTimeout(flashTimerRef.current);
+    clearTimeout(springTimerRef.current);
     cancelAnimationFrame(spyFrameRef.current);
   }, []);
 
-  // 從導覽列跳欄時暫停 scroll-spy，直到真的捲到目標（最多 1 秒）：
+  // 從導覽列跳欄時暫停 scroll-spy，直到真的捲到目標（最多 1.5 秒）：
   // 螢幕寬時兩端附近的欄位捲不到正中，途中的位置會被 spy 誤判成隔壁欄。
   // 使用者一碰滾輪、拖曳或觸控就立刻交還給 spy。
   const releaseSpyLock = () => { spyLockRef.current = null; };
 
-  const jumpToColumn = useCallback((index) => {
+  // moveFocus：拖曳途中跳欄時不動焦點，只捲動與閃框
+  const jumpToColumn = useCallback((index, { moveFocus = true } = {}) => {
     const board = boardRef.current;
     const column = columnRefs.current[index];
     if (!board || !column) return;
@@ -75,7 +80,7 @@ export default function KanbanBoard({ refreshKey, onCopyProject }) {
     spyLockRef.current = { target, until: performance.now() + 1500 };
     // 焦點跟著移進該欄（同頁錨點的行為）：接著按 Tab 會進到這欄的卡片，
     // 而不是從原本的位置往下走、把看板又捲回去
-    column.focus({ preventScroll: true });
+    if (moveFocus) column.focus({ preventScroll: true });
     // 欄位已經在畫面內、捲不動時，靠描邊閃一下讓視線找到它
     setFlashColumn(index);
     clearTimeout(flashTimerRef.current);
@@ -167,7 +172,23 @@ export default function KanbanBoard({ refreshKey, onCopyProject }) {
   const handleMouseUp = () => { isDown.current = false; };
   const handleMouseMove = (e) => { if (!isDown.current) return; e.preventDefault(); const x = e.pageX - boardRef.current.offsetLeft; const walk = (x - startX.current) * 1.5; boardRef.current.scrollLeft = scrollLeft.current - walk; };
   const handleDragStart = (e, id) => { isDown.current = false; setIsDraggingCard(true); e.dataTransfer.setData('projectId', id); e.currentTarget.style.opacity = '0.4'; };
-  const handleDragEnd = (e) => { e.currentTarget.style.opacity = '1'; stopAutoScroll(); setDragOverColumn(null); setIsDraggingCard(false); };
+  const handleDragEnd = (e) => { e.currentTarget.style.opacity = '1'; stopAutoScroll(); setDragOverColumn(null); setIsDraggingCard(false); clearPillDrag(); };
+  const clearPillDrag = () => { clearTimeout(springTimerRef.current); setDragOverPill(null); };
+  // 導覽列也是放置目標：拖著卡片在膠囊上停一下（像彈簧資料夾）看板就跳到那一欄，可以接著拖進欄內；
+  // 直接放在膠囊上則立刻移到該階段，一樣有「復原」可以反悔
+  const handlePillDragOver = (e, index) => {
+    if (!isDraggingCard) return; // 從網站外拖進來的檔案、文字不接
+    e.preventDefault();
+    stopAutoScroll(); // 從看板邊緣往上拖到導覽列時，邊緣自動捲動可能還在跑
+    if (dragOverPill === index) return;
+    setDragOverPill(index);
+    clearTimeout(springTimerRef.current);
+    springTimerRef.current = setTimeout(() => jumpToColumn(index, { moveFocus: false }), 600);
+  };
+  const handlePillDragLeave = (e) => {
+    if (e.currentTarget.contains(e.relatedTarget)) return; // 只是移到膠囊裡的文字上
+    clearPillDrag();
+  };
   const handleBoardDragOver = (e) => {
     e.preventDefault(); if (!boardRef.current) return;
     const { left, width } = boardRef.current.getBoundingClientRect();
@@ -179,7 +200,7 @@ export default function KanbanBoard({ refreshKey, onCopyProject }) {
 
   const handleDrop = async (e, newStatus) => {
     // 卡片換欄後原本的 DOM 會被卸載、收不到 dragend，所以拖曳狀態要在這裡也收掉
-    e.preventDefault(); stopAutoScroll(); setDragOverColumn(null); setIsDraggingCard(false);
+    e.preventDefault(); stopAutoScroll(); setDragOverColumn(null); setIsDraggingCard(false); clearPillDrag();
     const projectId = e.dataTransfer.getData('projectId');
     if (!projectId) return;
     const project = projects.find(p => p.id === projectId);
@@ -245,16 +266,21 @@ export default function KanbanBoard({ refreshKey, onCopyProject }) {
         <h1 className="text-xl md:text-2xl font-bold text-ink">全專案進度</h1>
 
         {/* 階段導覽列：點一下（或按數字鍵）就把該欄捲到正中；捲動看板時跟著亮起目前所在的欄。
-            順便當作全局總覽：每階段幾件、哪一階段有未讀回覆，不用橫向捲過去也看得到 */}
-        <nav ref={pillBarRef} aria-label="跳到進度階段" className="self-start max-w-full flex gap-1 p-1 bg-paper-soft/80 border border-line rounded-lg overflow-x-auto hide-scrollbar">
+            順便當作全局總覽：每階段幾件、哪一階段有未讀回覆，不用橫向捲過去也看得到。
+            拖曳卡片時外框轉虛線，提示這排也放得進去（和欄位的放置目標同一套配色） */}
+        <nav ref={pillBarRef} aria-label="跳到進度階段" className={`self-start max-w-full flex gap-1 p-1 bg-paper-soft/80 border rounded-lg overflow-x-auto hide-scrollbar transition-colors duration-150 motion-reduce:transition-none ${isDraggingCard ? 'border-dashed border-line-strong' : 'border-line'}`}>
           {columns.map(({ columnName, columnProjects, unreadInColumn }, i) => {
             const isActive = activeColumn === i;
+            const isDropTarget = dragOverPill === i;
             return (
               <button
                 key={columnName}
                 ref={(el) => { pillRefs.current[i] = el; }}
                 type="button"
                 onClick={() => jumpToColumn(i)}
+                onDragOver={(e) => handlePillDragOver(e, i)}
+                onDragLeave={handlePillDragLeave}
+                onDrop={(e) => handleDrop(e, columnName)}
                 aria-current={isActive ? 'location' : undefined}
                 // 報讀完整一句話，不念出裸數字「6 待音檔送件 9」
                 aria-label={`${columnName}，${columnProjects.length} 件${unreadInColumn > 0 ? `，${unreadInColumn} 個有未讀回覆` : ''}`}
@@ -262,7 +288,7 @@ export default function KanbanBoard({ refreshKey, onCopyProject }) {
                 title={`跳到「${columnName}」${unreadInColumn > 0 ? `・${unreadInColumn} 個有未讀回覆` : ''}（快捷鍵 ${i + 1}，← → 逐欄移動）`}
                 // 有觸控的裝置加高到好點的大小；數字鍵提示只在有滑鼠（通常也有鍵盤）時出現
                 className={`shrink-0 inline-flex items-center gap-1.5 h-7 pointer-coarse:h-8 px-2.5 rounded-md border text-xs whitespace-nowrap cursor-pointer transition-colors duration-150 motion-reduce:transition-none
-                  ${isActive ? 'bg-card border-line text-ink shadow-[0_1px_3px_rgba(0,0,0,0.03)]' : 'border-transparent text-ink-muted hover:text-ink-soft'}`}
+                  ${isDropTarget ? 'bg-line/60 border-line-strong text-ink' : isActive ? 'bg-card border-line text-ink shadow-[0_1px_3px_rgba(0,0,0,0.03)]' : 'border-transparent text-ink-muted hover:text-ink-soft'}`}
               >
                 <kbd className="hidden pointer-fine:inline-flex items-center justify-center min-w-4 h-4 px-1 rounded border border-line bg-card/60 font-sans text-[10px] font-bold leading-none text-ink-muted">{i + 1}</kbd>
                 <span className={isActive ? 'font-bold' : 'font-medium'}>{columnName}</span>
