@@ -10,6 +10,8 @@
 //                找出該案件的業務+業助 → 在 line_groups 查對應群組 → 推 LINE。
 //   手機推播 —— 免費無上限，所有留言與進度變更都推給該案的業務、業助、製作人員
 //                （留言不推給留言者本人），裝置訂閱存在 push_subscriptions。
+//                留言裡 @提及的人（comments.mentions）即使沒掛名也會收到，
+//                而且收到的是「某某 提到你」的版本。
 
 import webpush from 'web-push';
 
@@ -57,10 +59,16 @@ export default async function handler(req, res) {
       if (record.notify_line) {
         lineMessage = `💬 ${project.name}\n${record.author} 留言${replyTag}：\n${truncate(record.content, 200)}`;
       }
+      const preview = truncate(record.content, 120);
       push = {
         title: `💬 ${project.name}`,
-        body: `${record.author}${replyTag}：${truncate(record.content, 120)}`,
+        body: `${record.author}${replyTag}：${preview}`,
         exclude: record.author,
+        mentions: {
+          names: Array.isArray(record.mentions) ? record.mentions.filter(n => typeof n === 'string') : [],
+          title: `📣 ${record.author} 在「${project.name}」提到你`,
+          body: preview,
+        },
       };
     } else if (table === 'projects' && type === 'UPDATE') {
       // 進度變更：只在狀態「真的改變」時才通知（改其他欄位、清未讀等不算）
@@ -139,9 +147,11 @@ async function pushToLine(to, text) {
 
 // ── 手機／瀏覽器推播 ─────────────────────────────────
 
-async function notifyPush(project, { title, body, exclude }) {
+async function notifyPush(project, { title, body, exclude, mentions }) {
   if (!pushEnabled) return 'skip: push not configured';
-  const names = [...new Set([project.sales_rep, project.sales_assistant, project.production_staff])]
+  // 被 @ 的人收「提到你」版本；同時是相關人員的也只收這一則
+  const mentioned = new Set((mentions?.names ?? []).filter(name => name !== exclude));
+  const names = [...new Set([project.sales_rep, project.sales_assistant, project.production_staff, ...mentioned])]
     .filter(name => name && name !== exclude);
   if (names.length === 0) return 'skip: no recipients';
 
@@ -149,11 +159,14 @@ async function notifyPush(project, { title, body, exclude }) {
   if (subs.length === 0) return 'skip: no subscribed devices';
 
   // 點通知時由 service worker（public/sw.js）開啟 url，App 讀 ?project= 直接打開該案件
-  const payload = JSON.stringify({ title, body, url: `/?project=${project.id}`, projectId: project.id });
+  const link = { url: `/?project=${project.id}`, projectId: project.id };
+  const payloadFor = (name) => JSON.stringify(
+    mentioned.has(name) ? { title: mentions.title, body: mentions.body, ...link } : { title, body, ...link }
+  );
   // urgency high：Android 休眠省電時一般優先權的推播會延後送達，工作通知要即時
   const options = { TTL: 24 * 60 * 60, urgency: 'high' };
   const results = await Promise.allSettled(
-    subs.map(s => webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, options))
+    subs.map(s => webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payloadFor(s.user_name), options))
   );
 
   let sent = 0;

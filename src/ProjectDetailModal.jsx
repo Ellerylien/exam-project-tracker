@@ -6,6 +6,8 @@ import ConfirmDialog from './ConfirmDialog';
 import { STATUSES } from './constants';
 import { useToast } from './toast';
 import { useUnreadRefresh } from './unread';
+import MentionInput from './MentionInput';
+import { loadTeamMembers, extractMentions, escapeRegExp } from './team';
 
 export default function ProjectDetailModal({ project, onClose, onStatusChange, onProjectDeleted, onProjectUpdated, onCopyProject }) {
   const [activeProject, setActiveProject] = useState(null);
@@ -21,6 +23,8 @@ export default function ProjectDetailModal({ project, onClose, onStatusChange, o
   const [notifyLine, setNotifyLine] = useState(false);
   // { limit, used }，只有管理者會去查
   const [lineQuota, setLineQuota] = useState(null);
+  // 留言 @提及選單的成員清單
+  const [members, setMembers] = useState([]);
 
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editingContent, setEditingContent] = useState('');
@@ -91,6 +95,12 @@ const AVATAR_MAP = {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProject?.id]);
 
+  useEffect(() => {
+    let cancelled = false;
+    loadTeamMembers().then(list => { if (!cancelled) setMembers(list); });
+    return () => { cancelled = true; };
+  }, []);
+
   // 管理者才顯示 LINE 本月額度，每次開啟專案時更新一次
   useEffect(() => {
     if (!isAdmin || !activeProject?.id) return;
@@ -123,12 +133,15 @@ const AVATAR_MAP = {
   async function handleAddComment() {
     if (!newComment.trim() || !loggedInUser.name) return;
     try {
-      await supabase.from('comments').insert({ 
-        project_id: activeProject.id, 
-        author: loggedInUser.name, 
-        content: newComment.trim(),
+      const content = newComment.trim();
+      await supabase.from('comments').insert({
+        project_id: activeProject.id,
+        author: loggedInUser.name,
+        content,
         parent_id: replyingTo ? replyingTo.id : null,
-        notify_line: notifyLine
+        notify_line: notifyLine,
+        // 被 @ 的人會收到手機通知（api/notify.js）
+        mentions: extractMentions(content, members.map(m => m.name))
       });
       setNewComment(''); setReplyingTo(null); setNotifyLine(false); fetchComments();
       if (loggedInUser.name !== 'Ellery') {
@@ -144,10 +157,14 @@ const AVATAR_MAP = {
     setEditingContent(comment.content);
   };
 
-  const handleSaveEditComment = async (commentId) => {
+  const handleSaveEditComment = async (comment) => {
     if (!editingContent.trim()) return;
     try {
-      await supabase.from('comments').update({ content: editingContent.trim() }).eq('id', commentId);
+      const content = editingContent.trim();
+      // 通知只在新增留言時送出，編輯時補上的 @ 不會通知對方，所以只保留原本還在的提及，
+      // 避免討論串標示了 @某人、對方卻沒收到通知
+      const mentions = extractMentions(content, comment.mentions ?? []);
+      await supabase.from('comments').update({ content, mentions }).eq('id', comment.id);
       setEditingCommentId(null);
       setEditingContent('');
       fetchComments();
@@ -218,13 +235,24 @@ const AVATAR_MAP = {
             className="w-full text-sm p-2.5 bg-card border border-line rounded-md outline-none focus:border-ink-faint shadow-[0_1px_2px_rgba(0,0,0,0.01)] resize-none h-16"
           />
           <div className="flex gap-2 mt-2">
-            <button onClick={() => handleSaveEditComment(comment.id)} className="text-[11px] bg-accent text-paper px-3 py-1.5 rounded-md hover:bg-accent-strong font-bold transition-colors">儲存</button>
+            <button onClick={() => handleSaveEditComment(comment)} className="text-[11px] bg-accent text-paper px-3 py-1.5 rounded-md hover:bg-accent-strong font-bold transition-colors">儲存</button>
             <button onClick={() => setEditingCommentId(null)} className="text-[11px] bg-paper text-ink-soft px-3 py-1.5 rounded-md border border-line hover:bg-line font-bold transition-colors">取消</button>
           </div>
         </div>
       );
     }
-    return <p className="text-sm text-ink-soft leading-relaxed break-words mt-0.5">{comment.content}</p>;
+    return <p className="text-sm text-ink-soft leading-relaxed break-words mt-0.5">{renderMentions(comment)}</p>;
+  };
+
+  // 把有通知到的 @名字 標成醒目色（依 comments.mentions，不是單純比對文字）
+  const renderMentions = (comment) => {
+    if (!comment.mentions?.length) return comment.content;
+    const pattern = new RegExp(`(@(?:${comment.mentions.map(escapeRegExp).join('|')})(?![A-Za-z0-9_]))`);
+    return comment.content.split(pattern).map((part, i) =>
+      i % 2 === 1
+        ? <span key={i} className="font-bold text-info bg-info-bg rounded px-0.5">{part}</span>
+        : part
+    );
   };
 
   // 標出留言時有勾「同步通知 LINE」的留言，讓大家知道群組那邊也收得到
@@ -403,7 +431,15 @@ const AVATAR_MAP = {
               <div className="hidden sm:flex w-8 h-8 rounded-full border border-line bg-card items-center justify-center overflow-hidden shrink-0 shadow-sm">
                 <img src={getAvatarUrl(loggedInUser.name)} alt={loggedInUser.name} className="w-full h-full object-contain p-0.5" />
               </div>
-              <input type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddComment()} placeholder={replyingTo ? `回覆給 ${replyingTo.author}...` : "輸入討論內容..."} className="flex-1 w-full px-4 py-2 bg-card rounded-md outline-none text-sm placeholder:text-ink-faint border border-line focus:border-line-strong transition-all shadow-[0_1px_2px_rgba(0,0,0,0.01)]" />
+              <MentionInput
+                value={newComment}
+                onChange={setNewComment}
+                onSubmit={handleAddComment}
+                members={members.filter(m => m.name !== loggedInUser.name)}
+                getAvatarUrl={getAvatarUrl}
+                placeholder={replyingTo ? `回覆給 ${replyingTo.author}...（輸入 @ 可提及成員）` : "輸入討論內容，輸入 @ 可提及成員..."}
+                className="w-full px-4 py-2 bg-card rounded-md outline-none text-sm placeholder:text-ink-faint border border-line focus:border-line-strong transition-all shadow-[0_1px_2px_rgba(0,0,0,0.01)]"
+              />
               <button onClick={handleAddComment} title="送出" className="w-full sm:w-10 h-10 flex items-center justify-center bg-accent text-paper rounded-md hover:bg-accent-strong shadow-sm transition-colors shrink-0">
                 <svg className="w-4 h-4 translate-x-[-1px] translate-y-[1px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
               </button>
