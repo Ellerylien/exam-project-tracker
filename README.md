@@ -69,6 +69,16 @@
 | `npm run preview` | 預覽正式版 |
 | `npm run lint` | 執行 ESLint |
 
+## 版本管理
+
+目前版本與每一版的變更見 [`CHANGELOG.md`](CHANGELOG.md)，每個版本在 GitHub 都有 tag（`v1.7.0` 這種格式）與 [Release](https://github.com/Ellerylien/exam-project-tracker/releases)。
+推到 `main` 即自動部署到 Vercel；累積一批功能後再發佈新版本：
+
+1. 在 `CHANGELOG.md` 最上方新增版本段落（新功能升第二碼、只有修正升第三碼）
+2. 更新版本號：`npm version minor --no-git-tag-version`（只有修正時用 `patch`）
+3. commit 後打 tag 並推上去：`git tag -a v1.8.0 -m "v1.8.0 標題"`、`git push origin main --follow-tags`
+4. 建立 Release：`gh release create v1.8.0 --title "v1.8.0 標題" --notes "（貼上該版 CHANGELOG 內容）"`
+
 ## 專案結構
 
 ```

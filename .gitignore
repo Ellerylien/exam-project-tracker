@@ -27,3 +27,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code 本機設定（預覽伺服器等）
+.claude/
