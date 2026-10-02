@@ -132,8 +132,11 @@ const AVATAR_MAP = {
   useEffect(() => {
     if (!searchTerm.trim()) { setSearchResults([]); return; }
     const fetchSearch = async () => {
+      // 依審題日（deadline）由近到遠排序，先在資料庫排好再取前幾筆，最近的案件才不會被舊案擠掉
       const { data, error } = await supabase.from('projects').select('*')
-        .or(`name.ilike.%${searchTerm}%,teacher_name.ilike.%${searchTerm}%,scope.ilike.%${searchTerm}%`).limit(8);
+        .or(`name.ilike.%${searchTerm}%,teacher_name.ilike.%${searchTerm}%,scope.ilike.%${searchTerm}%`)
+        .order('deadline', { ascending: false, nullsFirst: false })
+        .limit(8);
       if (!error && data) setSearchResults(data);
     };
     const timer = setTimeout(() => fetchSearch(), 300);
@@ -167,14 +170,15 @@ const AVATAR_MAP = {
               className="pl-9 pr-3 py-2 bg-paper border border-line rounded-lg focus:outline-none focus:bg-card focus:border-line-strong transition-all w-full md:w-[200px] lg:w-[260px] text-sm text-ink placeholder:text-ink-faint"
             />
             {searchTerm && searchResults.length > 0 && (
-              <div className="absolute top-full mt-2 w-full min-w-[240px] bg-card rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-line max-h-[350px] overflow-y-auto z-50">
+              <div className="absolute top-full mt-2 w-full min-w-[240px] md:w-[360px] bg-card rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-line max-h-[60vh] overflow-y-auto z-50">
                 <div className="p-3 text-xs text-ink-muted font-bold border-b border-paper">搜尋結果 ({searchResults.length})</div>
                 {searchResults.map(p => (
                   <div key={p.id} role="button" tabIndex={0} onClick={(e) => { e.currentTarget.blur(); setSpotlightProject(p); setSearchTerm(''); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSpotlightProject(p); setSearchTerm(''); } }} className="p-3 border-b border-paper hover:bg-paper cursor-pointer">
-                    <div className="font-bold text-ink truncate text-sm">{p.name}</div>
-                    <div className="flex justify-between items-center mt-1.5 text-xs text-ink-muted">
-                      <span>{p.sales_rep}</span>
-                      <span className="bg-line/50 text-ink-soft px-2 py-0.5 rounded-md font-medium border border-line">{p.status}</span>
+                    {/* 完整顯示專案名稱，太長就換行，手機上也看得到（不靠滑鼠停留） */}
+                    <div className="font-bold text-ink text-sm leading-snug break-words">{p.name}</div>
+                    <div className="flex justify-between items-center gap-2 mt-1.5 text-xs text-ink-muted">
+                      <span className="min-w-0 truncate">{p.sales_rep}{p.deadline && <span className="text-ink-faint"> · 審題 {p.deadline}</span>}</span>
+                      <span className="shrink-0 bg-line/50 text-ink-soft px-2 py-0.5 rounded-md font-medium border border-line">{p.status}</span>
                     </div>
                   </div>
                 ))}
