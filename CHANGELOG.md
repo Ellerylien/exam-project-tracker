@@ -3,6 +3,15 @@
 版本號依[語意化版本](https://semver.org/lang/zh-TW/)編排：有新功能升第二碼（1.**x**.0），只有修正升第三碼（1.x.**y**）。
 每個版本在 GitHub 都有對應的 tag 與 Release，要回頭看某一版的程式可到 [Releases](https://github.com/Ellerylien/exam-project-tracker/releases) 下載。
 
+## [1.8.0] 搜尋結果改良 — 2026-10-02
+
+### 新增
+- 搜尋結果顯示審題日，同名的新舊案件一眼就能分辨
+
+### 變更
+- 搜尋結果完整顯示專案名稱，太長自動換行，不再被截成「…」；桌機版結果框加寬
+- 搜尋結果依審題日由近到遠排序，最近的案件排最上面，不會被很久以前的舊案擠掉
+
 ## [1.7.0] 寄信範本 — 2026-09-30
 
 ### 新增
@@ -99,6 +108,7 @@
 ### 修正
 - 點開專案卡後按 ESC 關閉，卡片殘留 focus 外框
 
+[1.8.0]: https://github.com/Ellerylien/exam-project-tracker/releases/tag/v1.8.0
 [1.7.0]: https://github.com/Ellerylien/exam-project-tracker/releases/tag/v1.7.0
 [1.6.0]: https://github.com/Ellerylien/exam-project-tracker/releases/tag/v1.6.0
 [1.5.0]: https://github.com/Ellerylien/exam-project-tracker/releases/tag/v1.5.0
